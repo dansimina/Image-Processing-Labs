@@ -426,6 +426,109 @@ void showHistogram(const std::string& name, int* hist, const int  hist_cols, con
 	imshow(name, imgHist);
 }
 
+// lab 1
+
+// Implement a function which changes the gray levels of an image by an additive factor.
+void changeGrayLevelUsingAdditiveFactor() {
+	unsigned int factor = 0;
+	printf("\nFactor: ");
+	scanf("%d", &factor);
+
+	Mat img = imread("Images/saturn.bmp", 0);
+
+	imshow("original", img);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			int val = img.at<unsigned char>(i, j) + factor;
+			img.at<unsigned char>(i, j) = val > 255 ? 255 : val;
+		}
+	}
+
+	imshow("new_image", img);
+	waitKey(0);
+}
+
+// Implement a function which changes the gray levels of an image by a multiplicative factor.
+void changeGrayLevelUsingMultiplicativeFactor() {
+	unsigned int factor = 0;
+	printf("\nFactor: ");
+	scanf("%d", &factor);
+
+	Mat img = imread("Images/saturn.bmp", 0);
+
+	imshow("original", img);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			int val = img.at<unsigned char>(i, j) * factor;
+			img.at<unsigned char>(i, j) = val > 255 ? 255 : val;
+		}
+	}
+
+	imshow("new_image", img);
+	imwrite("MyImages/imgEx4.bmp", img);
+	waitKey(0);
+}
+
+//Create a color image of dimension 256 x 256. Divide it into 4 squares and color the squares from top to bottom, left to right as : white, red, green, yellow.
+void createImageWithFourColors() {
+	Mat img(256, 256, CV_8UC3);
+
+	int mid = 128;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			Vec3b color{ 0, 0, 0 };
+
+			if (i < mid && j < mid) {
+				color = { 255, 255, 255 };
+			}
+			else if (i < mid && j >= mid) {
+				color = { 0, 0, 255 };
+			}
+			else if (i >= mid && j < mid) {
+				color = { 0, 255, 0 };
+			}
+			else if (i >= mid && j >= mid) {
+				color = { 0, 255, 255 };
+			}
+
+			img.at<Vec3b>(i, j) = color;
+		}
+	}
+
+	imshow("image", img);
+	waitKey(0);
+}
+
+//Create a 3x3 float matrix, determine its inverse and print it. 
+
+void computeMatrixInverse() {
+	printf("\Matrix 3x3: ");
+	float vals[9]{};
+
+	for (int i = 0; i < 9; i++) {
+		scanf("%f", &vals[i]);
+	}
+	
+	Mat M(3, 3, CV_32FC1, vals);
+
+	M = M.inv();
+
+	printf("\n");
+	for (int i = 0; i < M.rows; i++) {
+		for (int j = 0; j < M.cols; j++) {
+			printf("%f ", M.at<float>(i, j));
+		}
+		printf("\n");
+	}
+
+	char c;
+	scanf("%c", &c);
+	scanf("%c", &c);
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -449,6 +552,14 @@ int main()
 		printf(" 10 - Edges in a video sequence\n");
 		printf(" 11 - Snap frame from live video\n");
 		printf(" 12 - Mouse callback demo\n");
+
+
+		//lab 1
+		printf(" 13 - Change the gray level of image using additive factor\n");
+		printf(" 14 - Change the gray level of image using multiplicative factor\n");
+		printf(" 15 - Create a color image of dimension 256 x 256. Divide it into 4 squares and color the squares from top to bottom, left to right as : white, red, green, yellow.\n");
+		printf(" 16 - Create a 3x3 float matrix, determine its inverse and print it.\n");
+
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d",&op);
@@ -489,6 +600,20 @@ int main()
 				break;
 			case 12:
 				testMouseClick();
+				break;
+
+			//lab 1
+			case 13:
+				changeGrayLevelUsingAdditiveFactor();
+				break;
+			case 14:
+				changeGrayLevelUsingMultiplicativeFactor();
+				break;
+			case 15:
+				createImageWithFourColors();
+				break;
+			case 16:
+				computeMatrixInverse();
 				break;
 		}
 	}
