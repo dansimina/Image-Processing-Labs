@@ -529,6 +529,142 @@ void computeMatrixInverse() {
 	scanf("%c", &c);
 }
 
+// Lab 2
+//1.Create a function that will copy the R, G and B channels of a color, RGB24 image(CV_8UC3 type) into three matrices of type CV_8UC1(grayscale images).Display these matrices in three distinct windows.
+
+void imageTo3GrayscaleImages() {
+	Mat img = imread("Images/flowers_24bits.bmp",1);
+
+	Mat imgR(img.rows, img.cols, CV_8UC3);
+	Mat imgG(img.rows, img.cols, CV_8UC3);
+	Mat imgB(img.rows, img.cols, CV_8UC3);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			imgR.at<Vec3b>(i, j) = { 0, 0, img.at<Vec3b>(i, j)[2] };
+			imgG.at<Vec3b>(i, j) = { 0, img.at<Vec3b>(i, j)[1], 0 };
+			imgB.at<Vec3b>(i, j) = { img.at<Vec3b>(i, j)[0], 0, 0 };
+		}
+	}
+
+	imshow("img", img);
+	imshow("red", imgR);
+	imshow("green", imgG);
+	imshow("blue", imgB);
+
+	waitKey(0);
+}
+
+// Create a function that will convert a color RGB24 image (CV_8UC3 type) to a grayscale image(CV_8UC1), and display the result image in a destination window.
+void colorImageToGrayscaleImage() {
+	Mat img = imread("Images/flowers_24bits.bmp", 1);
+
+	Mat newImg(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			newImg.at<unsigned char>(i, j) = (img.at<Vec3b>(i, j)[0] + img.at<Vec3b>(i, j)[1] + img.at<Vec3b>(i, j)[2]) / 3.0;
+		}
+	}
+
+	imshow("InitialImage", img);
+	imshow("GrayscaleImage", newImg);
+	waitKey(0);
+}
+
+//Create a function for converting from grayscale to black and white (binary), using (2.2). Read the threshold from the console. Test the operation on multiple images, and using multiple thresholds.
+void grayscaleToBlackAndWhite() {
+	Mat img = imread("Images/eight.bmp", 0);
+	Mat binaryImg(img.rows, img.cols, CV_8UC1);
+
+	int threshold = 0;
+	printf("Threshold: ");
+	scanf("%d", &threshold);
+
+	threshold %= 256;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<unsigned char>(i, j) > threshold) {
+				binaryImg.at<unsigned char>(i, j) = 255;
+			}
+			else {
+				binaryImg.at<unsigned char>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("InitialImage", img);
+	imshow("BinaryImage", binaryImg);
+
+	waitKey(0);
+}
+
+//Create a function that will compute the H, S and V values from the R, G, B channels of an image, using the equations from 2.6. Store each value (H, S, V) in a CV_8UC1 matrix. Display these matrices in distinct windows. Check the correctness of your implementation using the example below.
+void imagesHSV() {
+	Mat img = imread("Images/Lena_24bits.bmp", 1);
+
+	Mat imgH(img.rows, img.cols, CV_8UC1);
+	Mat imgS(img.rows, img.cols, CV_8UC1);
+	Mat imgV(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			float r = img.at<Vec3b>(i, j)[2] / 255.0;
+			float g = img.at<Vec3b>(i, j)[1] / 255.0;
+			float b = img.at<Vec3b>(i, j)[0] / 255.0;
+
+			float M = max(r, max(g, b));
+			float m = min(r, min(g, b));
+			float C = M - m;
+
+			float H = 0;
+			float S = 0;
+			float V = M;
+
+			if (V != 0) {
+				S = C / V;
+			}
+			else {
+				S = 0;
+			}
+
+			if (C != 0) {
+				if (M == r)
+					H = 60 * (g - b) / C;
+				else if (M == g) {
+					H = 120 + 60 * (b - r) / C;
+				}
+				else if (M == b) {
+					H = 240 + 60 * (r - g) / C;
+				}
+			}
+			else {
+				H = 0;
+			}
+
+			if (H < 0) {
+				H = H + 360;
+			}
+
+			unsigned char Hnorm = H * 255 / 360;
+			unsigned char Snorm = S * 255;
+			unsigned char Vnorm = V * 255;
+
+			imgH.at<unsigned char>(i, j) = Hnorm;
+			imgS.at<unsigned char>(i, j) = Snorm;
+			imgV.at<unsigned char>(i, j) = Vnorm;
+		}
+	}
+
+	imshow("img", img);
+	imshow("H", imgH);
+	imshow("S", imgS);
+	imshow("V", imgV);
+
+	waitKey(0);
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -559,6 +695,12 @@ int main()
 		printf(" 14 - Change the gray level of image using multiplicative factor\n");
 		printf(" 15 - Create a color image of dimension 256 x 256. Divide it into 4 squares and color the squares from top to bottom, left to right as : white, red, green, yellow.\n");
 		printf(" 16 - Create a 3x3 float matrix, determine its inverse and print it.\n");
+
+		//Lab 2
+		printf(" 17 - Create a function that will copy the R, G and B channels of a color, RGB24 image(CV_8UC3 type) into three matrices of type CV_8UC1(grayscale images).Display these matrices in three distinct windows.\n");
+		printf(" 18 - Create a function that will convert a color RGB24 image (CV_8UC3 type) to a grayscale image (CV_8UC1), and display the result image in a destination window.\n");
+		printf(" 19 - Create a function for converting from grayscale to black and white (binary), using (2.2). Read the threshold from the console. Test the operation on multiple images, and using multiple thresholds.\n");
+		printf(" 20 - Create a function that will compute the H, S and V values from the R, G, B channels of an image, using the equations from 2.6. Store each value (H, S, V) in a CV_8UC1 matrix. Display these matrices in distinct windows. Check the correctness of your implementation using the example below.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -614,6 +756,20 @@ int main()
 				break;
 			case 16:
 				computeMatrixInverse();
+				break;
+
+			//Lab 2
+			case 17:
+				imageTo3GrayscaleImages();
+				break;
+			case 18:
+				colorImageToGrayscaleImage();
+				break;
+			case 19:
+				grayscaleToBlackAndWhite();
+				break;
+			case 20:
+				imagesHSV();
 				break;
 		}
 	}
