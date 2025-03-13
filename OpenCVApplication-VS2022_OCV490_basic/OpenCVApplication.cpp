@@ -1,4 +1,4 @@
-// OpenCVApplication.cpp : Defines the entry point for the console application.
+﻿// OpenCVApplication.cpp : Defines the entry point for the console application.
 //
 
 #include "stdafx.h"
@@ -426,7 +426,7 @@ void showHistogram(const std::string& name, int* hist, const int  hist_cols, con
 	imshow(name, imgHist);
 }
 
-// lab 1
+// Lab 1
 
 // Implement a function which changes the gray levels of an image by an additive factor.
 void changeGrayLevelUsingAdditiveFactor() {
@@ -665,6 +665,149 @@ void imagesHSV() {
 	waitKey(0);
 }
 
+// Lab 3
+//Compute the histogram for a given grayscale image (in an array of integers having dimension 256).
+// Compute the histogram for a given number of bins m ≤ 256.
+int* computeHistogram(const std::string& imgName, int m) {
+	Mat img = imread(imgName, IMREAD_GRAYSCALE);
+	int* histogram = new int[256]();
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			histogram[img.at<unsigned char>(i, j)]++;
+		}
+	}
+
+	if (m < 256) {
+		int* old = histogram;
+		int quotinet = 256 / m;
+		int remainder = 256 % m;
+		histogram = new int[256]();
+
+		for (int i = 0; i < 256; i += quotinet) {
+			for (int j = i; j < i + quotinet; j++) {
+				histogram[i] += old[i + j];
+			}
+			if (remainder > 0) {
+				histogram[i] += old[i + quotinet];
+				i++;
+				remainder--;
+			}
+		}
+
+		delete(old);
+	}
+
+	return histogram;
+}
+
+// Compute the PDF(in an array of floats of dimension 256).
+float* probabilityDensityFunction(const std::string& imgName, int m) {
+	Mat img = imread(imgName, IMREAD_GRAYSCALE);
+	int* histogram = computeHistogram(imgName, m);
+
+	int M = img.rows * img.cols;
+
+	float* pdf = new float[256]();
+
+	for (int i = 0; i < 256; i++) {
+		pdf[i] = (float)histogram[i] / M;
+	}
+
+	delete(histogram);
+
+	return pdf;
+}
+
+void displayPDF() {
+	float* res = probabilityDensityFunction("Images/cameraman.bmp", 256);
+	for (int i = 0; i < 256; i++) {
+		printf("%f ", res[i]);
+	}
+	int c;
+	scanf("%c", &c);
+	scanf("%c", &c);
+	delete(res);
+}
+
+// Display the computed histogram
+void displayHistogram(int* (*func)(const std::string&, int len), int len) {
+	int* histogram = func("Images/cameraman.bmp", len);
+
+	showHistogram("histogram", histogram, 256, 200);
+	waitKey(0);
+
+	delete(histogram);
+}
+
+// Implement the multilevel thresholding algorithm from section.
+// Enhance the multilevel thresholding algorithm using the Floyd - Steinberg dithering from section 3.4.
+void multilevelThresholdingAlgorithm() {
+	Mat img = imread("Images/saturn.bmp", IMREAD_GRAYSCALE);
+
+	float* normalizedHistogram = probabilityDensityFunction("Images/saturn.bmp", 256);
+	int WH = 5;
+	int windowWidth = 2 * WH + 1;
+
+	std::deque<int> q;
+
+	float TH = 0.0003;
+
+	for (int i = WH; i <= 255 - WH; i++) {
+		float avg = 0.0;
+		bool ok = true;
+		for (int j = i - WH; j <= i + WH; j++) {
+			avg += normalizedHistogram[j];
+			if (j != i && normalizedHistogram[i] < normalizedHistogram[j]) {
+				ok = false;
+			}
+		}
+		avg /= windowWidth;
+
+		if (normalizedHistogram[i] > avg + TH && ok) {
+			q.push_back(i);
+		}
+	}
+
+	q.push_front(0);
+	q.push_back(255);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			int newPixel = 0;
+			int dist = 256;
+
+			int oldPixel = img.at<unsigned char>(i, j);
+
+			for (int k = 0; k < q.size(); k++) {
+				if (abs(oldPixel - q[k]) < dist) {
+					dist = abs(oldPixel - q[k]);
+					newPixel = q[k];
+				}
+			}
+
+			img.at<unsigned char>(i, j) = newPixel;
+
+			int error = oldPixel - newPixel;
+			if (j + 1 < img.cols) {
+				img.at<unsigned char>(i, j + 1) = img.at<unsigned char>(i, j + 1) + (int)(7 * error / 16.0);
+			}
+			if (i + 1 < img.rows && j - 1 > 0) {
+				img.at<unsigned char>(i + 1, j - 1) = img.at<unsigned char>(i + 1, j - 1) + (int)(3 * error / 16.0);
+			}
+			if (i + 1 < img.rows) {
+				img.at<unsigned char>(i + 1, j) = img.at<unsigned char>(i + 1, j) + (int)(5 * error / 16.0);
+			}
+			if (i + 1 < img.rows && j + 1 < img.cols) {
+				img.at<unsigned char>(i + 1, j + 1) = img.at<unsigned char>(i + 1, j + 1) + (int)(error / 16.0);
+			}
+		}
+	}
+
+	imshow("img", img);
+	waitKey(0);
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -701,6 +844,12 @@ int main()
 		printf(" 18 - Create a function that will convert a color RGB24 image (CV_8UC3 type) to a grayscale image (CV_8UC1), and display the result image in a destination window.\n");
 		printf(" 19 - Create a function for converting from grayscale to black and white (binary), using (2.2). Read the threshold from the console. Test the operation on multiple images, and using multiple thresholds.\n");
 		printf(" 20 - Create a function that will compute the H, S and V values from the R, G, B channels of an image, using the equations from 2.6. Store each value (H, S, V) in a CV_8UC1 matrix. Display these matrices in distinct windows. Check the correctness of your implementation using the example below.\n");
+
+		//Lab 3
+		printf(" 21 - Compute the histogram for a given grayscale image (in an array of integers having dimension 256).\n");
+		printf(" 22 - Compute the PDF (in an array of floats of dimension 256).\n");
+		printf(" 23 - Compute the histogram for a given number of bins m ≤ 256.\n");
+		printf(" 24 - Implement the multilevel thresholding algorithm from section.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -770,6 +919,20 @@ int main()
 				break;
 			case 20:
 				imagesHSV();
+				break;
+
+			//Lab 3
+			case 21:
+				displayHistogram(computeHistogram, 256);
+				break;
+			case 22:
+				displayPDF();
+				break;
+			case 23:
+				displayHistogram(computeHistogram, 100);
+				break;
+			case 24:
+				multilevelThresholdingAlgorithm();
 				break;
 		}
 	}
