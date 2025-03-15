@@ -601,12 +601,10 @@ void grayscaleToBlackAndWhite() {
 }
 
 //Create a function that will compute the H, S and V values from the R, G, B channels of an image, using the equations from 2.6. Store each value (H, S, V) in a CV_8UC1 matrix. Display these matrices in distinct windows. Check the correctness of your implementation using the example below.
-void imagesHSV() {
-	Mat img = imread("Images/Lena_24bits.bmp", 1);
-
-	Mat imgH(img.rows, img.cols, CV_8UC1);
-	Mat imgS(img.rows, img.cols, CV_8UC1);
-	Mat imgV(img.rows, img.cols, CV_8UC1);
+void computeHSV(Mat img, Mat& imgH, Mat& imgS, Mat& imgV) {
+	imgH = Mat(img.rows, img.cols, CV_8UC1);
+	imgS = Mat(img.rows, img.cols, CV_8UC1);
+	imgV = Mat(img.rows, img.cols, CV_8UC1);
 
 	for (int i = 0; i < img.rows; i++) {
 		for (int j = 0; j < img.cols; j++) {
@@ -656,6 +654,15 @@ void imagesHSV() {
 			imgV.at<unsigned char>(i, j) = Vnorm;
 		}
 	}
+}
+
+void displayHSV() {
+	Mat img = imread("Images/Lena_24bits.bmp", 1);
+	Mat imgH;
+	Mat imgS;
+	Mat imgV;
+
+	computeHSV(img, imgH, imgS, imgV);
 
 	imshow("img", img);
 	imshow("H", imgH);
@@ -668,8 +675,7 @@ void imagesHSV() {
 // Lab 3
 //Compute the histogram for a given grayscale image (in an array of integers having dimension 256).
 // Compute the histogram for a given number of bins m ≤ 256.
-int* computeHistogram(const std::string& imgName, int m) {
-	Mat img = imread(imgName, IMREAD_GRAYSCALE);
+int* computeHistogram(Mat img, int m) {
 	int* histogram = new int[256]();
 
 	for (int i = 0; i < img.rows; i++) {
@@ -686,7 +692,7 @@ int* computeHistogram(const std::string& imgName, int m) {
 
 		for (int i = 0; i < 256; i += quotinet) {
 			for (int j = i; j < i + quotinet; j++) {
-				histogram[i] += old[i + j];
+				histogram[i] += old[j];
 			}
 			if (remainder > 0) {
 				histogram[i] += old[i + quotinet];
@@ -702,9 +708,8 @@ int* computeHistogram(const std::string& imgName, int m) {
 }
 
 // Compute the PDF(in an array of floats of dimension 256).
-float* probabilityDensityFunction(const std::string& imgName, int m) {
-	Mat img = imread(imgName, IMREAD_GRAYSCALE);
-	int* histogram = computeHistogram(imgName, m);
+float* probabilityDensityFunction(Mat img, int m) {
+	int* histogram = computeHistogram(img, m);
 
 	int M = img.rows * img.cols;
 
@@ -720,7 +725,8 @@ float* probabilityDensityFunction(const std::string& imgName, int m) {
 }
 
 void displayPDF() {
-	float* res = probabilityDensityFunction("Images/cameraman.bmp", 256);
+	Mat img = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+	float* res = probabilityDensityFunction(img, 256);
 	for (int i = 0; i < 256; i++) {
 		printf("%f ", res[i]);
 	}
@@ -731,8 +737,10 @@ void displayPDF() {
 }
 
 // Display the computed histogram
-void displayHistogram(int* (*func)(const std::string&, int len), int len) {
-	int* histogram = func("Images/cameraman.bmp", len);
+void displayHistogram(int* (*func)(Mat img, int len), int len) {
+	Mat img = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+
+	int* histogram = func(img, len);
 
 	showHistogram("histogram", histogram, 256, 200);
 	waitKey(0);
@@ -741,11 +749,11 @@ void displayHistogram(int* (*func)(const std::string&, int len), int len) {
 }
 
 // Implement the multilevel thresholding algorithm from section.
-// Enhance the multilevel thresholding algorithm using the Floyd - Steinberg dithering from section 3.4.
-void multilevelThresholdingAlgorithm() {
-	Mat img = imread("Images/saturn.bmp", IMREAD_GRAYSCALE);
+Mat multilevelThresholdingAlgorithm(Mat img) {
+	Mat newImg;
+	img.copyTo(newImg);
 
-	float* normalizedHistogram = probabilityDensityFunction("Images/saturn.bmp", 256);
+	float* normalizedHistogram = probabilityDensityFunction(newImg, 256);
 	int WH = 5;
 	int windowWidth = 2 * WH + 1;
 
@@ -772,12 +780,12 @@ void multilevelThresholdingAlgorithm() {
 	q.push_front(0);
 	q.push_back(255);
 
-	for (int i = 0; i < img.rows; i++) {
-		for (int j = 0; j < img.cols; j++) {
+	for (int i = 0; i < newImg.rows; i++) {
+		for (int j = 0; j < newImg.cols; j++) {
 			int newPixel = 0;
 			int dist = 256;
 
-			int oldPixel = img.at<unsigned char>(i, j);
+			int oldPixel = newImg.at<unsigned char>(i, j);
 
 			for (int k = 0; k < q.size(); k++) {
 				if (abs(oldPixel - q[k]) < dist) {
@@ -786,25 +794,166 @@ void multilevelThresholdingAlgorithm() {
 				}
 			}
 
-			img.at<unsigned char>(i, j) = newPixel;
+			newImg.at<unsigned char>(i, j) = newPixel;
+		}
+	}
+
+	return newImg;
+}
+
+void displayImgAfterMultilevelThresholdingAlgorithm() {
+	Mat img = imread("Images/saturn.bmp", IMREAD_GRAYSCALE);
+	Mat newImg;
+
+	newImg = multilevelThresholdingAlgorithm(img);
+
+	imshow("img", img);
+	imshow("newImg", newImg);
+	waitKey(0);
+}
+
+
+// Enhance the multilevel thresholding algorithm using the Floyd - Steinberg dithering from section 3.4.
+Mat multilevelThresholdingAlgorithmWithFloydSteinberg(Mat img) {
+	Mat newImg;
+	img.copyTo(newImg);
+
+	float* normalizedHistogram = probabilityDensityFunction(newImg, 256);
+	int WH = 5;
+	int windowWidth = 2 * WH + 1;
+
+	std::deque<int> q;
+
+	float TH = 0.0003;
+
+	for (int i = WH; i <= 255 - WH; i++) {
+		float avg = 0.0;
+		bool ok = true;
+		for (int j = i - WH; j <= i + WH; j++) {
+			avg += normalizedHistogram[j];
+			if (j != i && normalizedHistogram[i] < normalizedHistogram[j]) {
+				ok = false;
+			}
+		}
+		avg /= windowWidth;
+
+		if (normalizedHistogram[i] > avg + TH && ok) {
+			q.push_back(i);
+		}
+	}
+
+	q.push_front(0);
+	q.push_back(255);
+
+	for (int i = 0; i < newImg.rows; i++) {
+		for (int j = 0; j < newImg.cols; j++) {
+			int newPixel = 0;
+			int dist = 256;
+
+			int oldPixel = newImg.at<unsigned char>(i, j);
+
+			for (int k = 0; k < q.size(); k++) {
+				if (abs(oldPixel - q[k]) < dist) {
+					dist = abs(oldPixel - q[k]);
+					newPixel = q[k];
+				}
+			}
+
+			newImg.at<unsigned char>(i, j) = newPixel;
 
 			int error = oldPixel - newPixel;
-			if (j + 1 < img.cols) {
-				img.at<unsigned char>(i, j + 1) = img.at<unsigned char>(i, j + 1) + (int)(7 * error / 16.0);
+			if (j + 1 < newImg.cols) {
+				newImg.at<unsigned char>(i, j + 1) = newImg.at<unsigned char>(i, j + 1) + (int)(7 * error / 16.0);
 			}
-			if (i + 1 < img.rows && j - 1 > 0) {
-				img.at<unsigned char>(i + 1, j - 1) = img.at<unsigned char>(i + 1, j - 1) + (int)(3 * error / 16.0);
+			if (i + 1 < newImg.rows && j - 1 > 0) {
+				newImg.at<unsigned char>(i + 1, j - 1) = newImg.at<unsigned char>(i + 1, j - 1) + (int)(3 * error / 16.0);
 			}
-			if (i + 1 < img.rows) {
-				img.at<unsigned char>(i + 1, j) = img.at<unsigned char>(i + 1, j) + (int)(5 * error / 16.0);
+			if (i + 1 < newImg.rows) {
+				newImg.at<unsigned char>(i + 1, j) = newImg.at<unsigned char>(i + 1, j) + (int)(5 * error / 16.0);
 			}
-			if (i + 1 < img.rows && j + 1 < img.cols) {
-				img.at<unsigned char>(i + 1, j + 1) = img.at<unsigned char>(i + 1, j + 1) + (int)(error / 16.0);
+			if (i + 1 < newImg.rows && j + 1 < newImg.cols) {
+				newImg.at<unsigned char>(i + 1, j + 1) = newImg.at<unsigned char>(i + 1, j + 1) + (int)(error / 16.0);
 			}
 		}
 	}
 
+	return newImg;
+}
+
+void displayImgAfterMultilevelThresholdingAlgorithmWithFloydSteinberg() {
+	Mat img = imread("Images/saturn.bmp", IMREAD_GRAYSCALE);
+	Mat newImg;
+
+	newImg = multilevelThresholdingAlgorithmWithFloydSteinberg(img);
+
 	imshow("img", img);
+	imshow("newImg", newImg);
+	waitKey(0);
+}
+
+//Perform multilevel thresholding on a color image by applying the procedure from 3.3 on
+//the Hue channel from the HSV color - space representation of the image.Modify only the
+//Hue values, keeping the S and V channels unchanged or setting them to their maximum
+//possible value.Transform the result back to RGB color - space for viewing.
+Mat multilevelThresholdingOnColorImage(Mat img) {
+	Mat imgH;
+	Mat imgS;
+	Mat imgV;
+
+	computeHSV(img, imgH, imgS, imgV);
+
+	imgH = multilevelThresholdingAlgorithm(imgH);
+
+	Mat newImg(img.rows, img.cols, CV_8UC3);
+
+	for (int i = 0; i < newImg.rows; i++) {
+		for (int j = 0; j < newImg.cols; j++) {
+			float H = imgH.at<unsigned char>(i, j) * 360.0 / 255.0;
+			float S = imgS.at<unsigned char>(i, j) / 255.0;
+			float V = imgV.at<unsigned char>(i, j) / 255.0;
+
+			float C = V * S;
+			float X = C * (1 - abs((int)(H / 60) % 2 - 1));
+			float m = V - C;
+
+			Vec3b pixel;
+
+			if (H >= 0 && H < 60) {
+				pixel = Vec3b((0 + m) * 255, (X + m) * 255, (C + m) * 255);
+			}
+			else if (H >= 60 && H < 120) {
+				pixel = Vec3b((0 + m) * 255, (C + m) * 255, (X + m) * 255);
+			}
+			else if (H >= 120 && H < 180) {
+				pixel = Vec3b((X + m) * 255, (C + m) * 255, (0 + m) * 255);
+			}
+			else if (H >= 180 && H < 240) {
+				pixel = Vec3b((C + m) * 255, (X + m) * 255, (0 + m) * 255);
+			}
+			else if (H >= 240 && H < 300) {
+				pixel = Vec3b((C + m) * 255, (0 + m) * 255, (X + m) * 255);
+			}
+			else if (H >= 300 && H < 360) {
+				pixel = Vec3b((X + m) * 255, (0 + m) * 255, (C + m) * 255);
+			}
+			else {
+				pixel = Vec3b(0, 0, 0);
+			}
+
+			newImg.at<Vec3b>(i, j) = pixel;
+		}
+	}
+
+	return newImg;
+}
+
+void displayMultilevelThresholdingOnColorImage() {
+	Mat img = imread("Images/Lena_24bits.bmp", 1);
+
+	Mat newImg = multilevelThresholdingOnColorImage(img);
+
+	imshow("img", img);
+	imshow("new img", newImg);
 	waitKey(0);
 }
 
@@ -850,6 +999,8 @@ int main()
 		printf(" 22 - Compute the PDF (in an array of floats of dimension 256).\n");
 		printf(" 23 - Compute the histogram for a given number of bins m ≤ 256.\n");
 		printf(" 24 - Implement the multilevel thresholding algorithm from section.\n");
+		printf(" 25 - Enhance the multilevel thresholding algorithm using the Floyd-Steinberg dithering from section 3.4.\n");
+		printf(" 26 - Perform multilevel thresholding on a color image by applying the procedure from 3.3 on the Hue channel from the HSV color-space representation of the image. Modify only the Hue values, keeping the S and V channels unchanged or setting them to their maximum possible value. Transform the result back to RGB color-space for viewing.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -918,7 +1069,7 @@ int main()
 				grayscaleToBlackAndWhite();
 				break;
 			case 20:
-				imagesHSV();
+				displayHSV();
 				break;
 
 			//Lab 3
@@ -932,7 +1083,13 @@ int main()
 				displayHistogram(computeHistogram, 100);
 				break;
 			case 24:
-				multilevelThresholdingAlgorithm();
+				displayImgAfterMultilevelThresholdingAlgorithm();
+				break;
+			case 25:
+				displayImgAfterMultilevelThresholdingAlgorithmWithFloydSteinberg();
+				break;
+			case 26:
+				displayMultilevelThresholdingOnColorImage();
 				break;
 		}
 	}
