@@ -814,6 +814,12 @@ void displayImgAfterMultilevelThresholdingAlgorithm() {
 
 
 // Enhance the multilevel thresholding algorithm using the Floyd - Steinberg dithering from section 3.4.
+int clamp(int value, int min, int max) {
+	if (value < min) return min;
+	if (value > max) return max;
+	return value;
+}
+
 Mat multilevelThresholdingAlgorithmWithFloydSteinberg(Mat img) {
 	Mat newImg;
 	img.copyTo(newImg);
@@ -863,17 +869,18 @@ Mat multilevelThresholdingAlgorithmWithFloydSteinberg(Mat img) {
 
 			int error = oldPixel - newPixel;
 			if (j + 1 < newImg.cols) {
-				newImg.at<unsigned char>(i, j + 1) = newImg.at<unsigned char>(i, j + 1) + (int)(7 * error / 16.0);
+				newImg.at<unsigned char>(i, j + 1) = clamp(newImg.at<unsigned char>(i, j + 1) + (int)(7 * error / 16.0), 0, 255);
 			}
-			if (i + 1 < newImg.rows && j - 1 > 0) {
-				newImg.at<unsigned char>(i + 1, j - 1) = newImg.at<unsigned char>(i + 1, j - 1) + (int)(3 * error / 16.0);
+			if (i + 1 < newImg.rows && j - 1 >= 0) {  
+				newImg.at<unsigned char>(i + 1, j - 1) = clamp(newImg.at<unsigned char>(i + 1, j - 1) + (int)(3 * error / 16.0), 0, 255);
 			}
 			if (i + 1 < newImg.rows) {
-				newImg.at<unsigned char>(i + 1, j) = newImg.at<unsigned char>(i + 1, j) + (int)(5 * error / 16.0);
+				newImg.at<unsigned char>(i + 1, j) = clamp(newImg.at<unsigned char>(i + 1, j) + (int)(5 * error / 16.0), 0, 255);
 			}
 			if (i + 1 < newImg.rows && j + 1 < newImg.cols) {
-				newImg.at<unsigned char>(i + 1, j + 1) = newImg.at<unsigned char>(i + 1, j + 1) + (int)(error / 16.0);
+				newImg.at<unsigned char>(i + 1, j + 1) = clamp(newImg.at<unsigned char>(i + 1, j + 1) + (int)(error / 16.0), 0, 255);
 			}
+
 		}
 	}
 
@@ -902,7 +909,7 @@ Mat multilevelThresholdingOnColorImage(Mat img) {
 
 	computeHSV(img, imgH, imgS, imgV);
 
-	imgH = multilevelThresholdingAlgorithm(imgH);
+	imgH = multilevelThresholdingAlgorithmWithFloydSteinberg(imgH);
 
 	Mat newImg(img.rows, img.cols, CV_8UC3);
 
@@ -919,22 +926,46 @@ Mat multilevelThresholdingOnColorImage(Mat img) {
 			Vec3b pixel;
 
 			if (H >= 0 && H < 60) {
-				pixel = Vec3b((0 + m) * 255, (X + m) * 255, (C + m) * 255);
+				pixel = Vec3b(
+					clamp((0 + m) * 255, 0, 255),
+					clamp((X + m) * 255, 0, 255),
+					clamp((C + m) * 255, 0, 255)
+				);
 			}
 			else if (H >= 60 && H < 120) {
-				pixel = Vec3b((0 + m) * 255, (C + m) * 255, (X + m) * 255);
+				pixel = Vec3b(
+					clamp((0 + m) * 255, 0, 255),
+					clamp((C + m) * 255, 0, 255),
+					clamp((X + m) * 255, 0, 255)
+				);
 			}
 			else if (H >= 120 && H < 180) {
-				pixel = Vec3b((X + m) * 255, (C + m) * 255, (0 + m) * 255);
+				pixel = Vec3b(
+					clamp((X + m) * 255, 0, 255),
+					clamp((C + m) * 255, 0, 255),
+					clamp((0 + m) * 255, 0, 255)
+				);
 			}
 			else if (H >= 180 && H < 240) {
-				pixel = Vec3b((C + m) * 255, (X + m) * 255, (0 + m) * 255);
+				pixel = Vec3b(
+					clamp((C + m) * 255, 0, 255),
+					clamp((X + m) * 255, 0, 255),
+					clamp((0 + m) * 255, 0, 255)
+				);
 			}
 			else if (H >= 240 && H < 300) {
-				pixel = Vec3b((C + m) * 255, (0 + m) * 255, (X + m) * 255);
+				pixel = Vec3b(
+					clamp((C + m) * 255, 0, 255),
+					clamp((0 + m) * 255, 0, 255),
+					clamp((X + m) * 255, 0, 255)
+				);
 			}
 			else if (H >= 300 && H < 360) {
-				pixel = Vec3b((X + m) * 255, (0 + m) * 255, (C + m) * 255);
+				pixel = Vec3b(
+					clamp((X + m) * 255, 0, 255),
+					clamp((0 + m) * 255, 0, 255),
+					clamp((C + m) * 255, 0, 255)
+				);
 			}
 			else {
 				pixel = Vec3b(0, 0, 0);
