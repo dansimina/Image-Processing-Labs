@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "common.h"
 #include <opencv2/core/utils/logger.hpp>
+#include <math.h>
 
 wchar_t* projectPath;
 
@@ -988,6 +989,346 @@ void displayMultilevelThresholdingOnColorImage() {
 	waitKey(0);
 }
 
+// Lab 4
+//For a specific object in a labeled image selected by a mouse click, compute the object’s area, center of mass, axis of elongation, perimeter, thinness ratio and aspect ratio.
+
+int computeArea(Mat img, int x, int y) {
+	int area = 0;
+	
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j)[0] == targetColor[0] &&
+				img.at<Vec3b>(i, j)[1] == targetColor[1] &&
+				img.at<Vec3b>(i, j)[2] == targetColor[2]) {
+				area++;
+			}
+		}
+	}
+
+	return area;
+}
+
+std::pair<int, int> computeCenterOfMass(Mat img, int x, int y) {
+	int area = computeArea(img, x, y);
+
+	int r = 0;
+	int c = 0;
+
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j)[0] == targetColor[0] &&
+				img.at<Vec3b>(i, j)[1] == targetColor[1] &&
+				img.at<Vec3b>(i, j)[2] == targetColor[2]) {
+				r += i;
+				c += j;
+			}
+		}
+	}
+
+	return { r / area, c / area };
+}
+
+double computeAxisOfElongation(Mat img, int x, int y) {
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+	std::pair<int, int> centerOfMass = computeCenterOfMass(img, x, y);
+
+	int t1 = 0, t2 = 0, t3 = 0;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j)[0] == targetColor[0] &&
+				img.at<Vec3b>(i, j)[1] == targetColor[1] &&
+				img.at<Vec3b>(i, j)[2] == targetColor[2]) {
+				
+				t1 += (i - centerOfMass.first) * (j - centerOfMass.second);
+				t2 += (j - centerOfMass.second) * (j - centerOfMass.second);
+				t3 += (i - centerOfMass.first) * (i - centerOfMass.first);
+			}
+		}
+	}
+
+	t1 = (t1 << 1);
+
+	return atan2(t1, (t2 - t3)) * 0.5;
+}
+
+int computePerimeter(Mat img, int x, int y) {
+	int perimeter = 0;
+
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) == targetColor && 
+				((i < img.rows && img.at<Vec3b>(i + 1, j) != targetColor) ||
+					(i >= 0 && img.at<Vec3b>(i - 1, j) != targetColor) ||
+					(j < img.cols && img.at<Vec3b>(i, j + 1) != targetColor) ||
+					(j >= 0 && img.at<Vec3b>(i, j - 1) != targetColor)
+					)) {
+				
+				perimeter++;
+			}
+		}
+	}
+
+	return perimeter * (PI / 4);
+}
+
+double computeThinnessRatio(Mat img, int x, int y) {
+	int area = computeArea(img, x, y);
+	int perimeter = computePerimeter(img, x, y);
+
+	return 4.0 * PI * ((double) area / (perimeter * perimeter));
+}
+
+double computeAspectRatio(Mat img, int x, int y) {
+	int cMin = img.cols;
+	int rMin = img.rows;
+	int cMax = 0;
+	int rMax = 0;
+
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) == targetColor) {
+				cMin = min(cMin, j);
+				rMin = min(rMin, i);
+				cMax = max(cMax, j);
+				rMax = max(rMax, i);
+			}
+		}
+	}
+
+	return (double)(cMax - cMin + 1) / (rMax - rMin + 1);
+}
+
+void drawSelectedObject(Mat img, int x, int y) {
+	Mat newImg(img.rows, img.cols, CV_8UC3);
+
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+
+	std::pair<int, int> centerOfMass = computeCenterOfMass(img, x, y);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) == targetColor &&
+				((i < img.rows && img.at<Vec3b>(i + 1, j) != targetColor) ||
+					(i >= 0 && img.at<Vec3b>(i - 1, j) != targetColor) ||
+					(j < img.cols && img.at<Vec3b>(i, j + 1) != targetColor) ||
+					(j >= 0 && img.at<Vec3b>(i, j - 1) != targetColor)
+					)) {
+
+				newImg.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+			}
+
+			if (abs(i - centerOfMass.first) + abs(j - centerOfMass.second) < 5) {
+				newImg.at<Vec3b>(i, j) = Vec3b(0, 255, 0);
+			}
+		}
+	}
+
+	double angle = computeAxisOfElongation(img, x, y);
+	int length = 100;
+
+	Point p1, p2;
+	p1.x = centerOfMass.second - length * cos(angle);
+	p1.y = centerOfMass.first - length * sin(angle);
+	p2.x = centerOfMass.second + length * cos(angle);
+	p2.y = centerOfMass.first + length * sin(angle);
+	line(newImg, p1, p2, Scalar(255, 0, 0), 2);
+
+	imshow("Img1", newImg);
+}
+
+void computeProjections(Mat img, int x, int y) {
+	Mat projectionOnY(img.rows, img.cols, CV_8UC3);
+	Mat projectionOnX(img.rows, img.cols, CV_8UC3);
+
+	std::vector<int> r(img.rows, 0);
+	std::vector<int> c(img.cols, 0);
+
+	Vec3b targetColor = img.at<Vec3b>(y, x);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) == targetColor) {
+				r[i]++;
+				c[j]++;
+			}
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < r[i]; j++) {
+			projectionOnY.at<Vec3b>(i, j) = Vec3b(0, 255, 0);
+
+		}
+	}
+
+	for (int i = 0; i < img.cols; i++) {
+		for (int j = 0; j < c[i]; j++) {
+			projectionOnX.at<Vec3b>(img.rows - j - 1, i) = Vec3b(0, 255, 0);
+		}
+	}
+
+	imshow("Projection on X", projectionOnX);
+	imshow("Projection on Y", projectionOnY);
+}
+
+void myCallBackFuncObjectProperties(int event, int x, int y, int flags, void* param)
+{
+	Mat* src = (Mat*)param;
+	if (event == EVENT_LBUTTONDOWN)
+	{
+		printf("Area: %d\n", computeArea((*src), x, y));
+
+		std::pair<int, int> centerOfMass = computeCenterOfMass((*src), x, y);
+		printf("Center of mass: %d %d\n", centerOfMass.first, centerOfMass.second);
+
+		printf("The axis of elongatio: %lf\n", computeAxisOfElongation((*src), x, y));
+
+		printf("Perimeter: %d\n", computePerimeter((*src), x, y));
+
+		printf("The thinness ratio: %lf\n", computeThinnessRatio((*src), x, y));
+
+		printf("The aspect ratio: %lf\n", computeAspectRatio((*src), x, y));
+
+		drawSelectedObject((*src), x, y);
+
+		computeProjections((*src), x, y);
+	}
+}
+
+void mouseClickObjectProperties()
+{
+	Mat src;
+	// Read image from file 
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		src = imread(fname);
+		//Create a window
+		namedWindow("My Window", 1);
+
+		//set the callback function for any mouse event
+		setMouseCallback("My Window", myCallBackFuncObjectProperties, &src);
+
+		//show the image
+		imshow("My Window", src);
+
+		// Wait until user press some key
+		waitKey(0);
+	}
+}
+
+// Create a new processing function which takes as input a labeled image and keeps in the output image only the objects that :
+//	a.have their area < TH_area
+//	b.have a specific orientation phi, where phi_LOW < phi < phi_HIGH where TH_area, phi_LOW, phi_HIGH are given by the user.
+
+int colorToInt(const Vec3b& color) {
+	return (color[0] << 16) | (color[1] << 8) | (color[2]);
+}
+
+Mat filterObjects(Mat img, int th, float phi_low, float phi_high) {
+	std::unordered_map<int, int> area, t1, t2, t3;
+	std::unordered_map<int, float> r, c;
+	std::unordered_map<int, float> phi;
+
+	Mat newImg(img.rows, img.cols, CV_8UC3, Scalar(255, 255, 255));
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			Vec3b color = img.at<Vec3b>(i, j);
+			int key = colorToInt(color);
+			if (key) {
+				area[key]++;
+				r[key] += i;
+				c[key] += j;
+			}
+		}
+	}
+
+	for (auto& i : area) {
+		r[i.first] /= (float)i.second;
+		c[i.first] /= (float)i.second;
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			Vec3b color = img.at<Vec3b>(i, j);
+			int key = colorToInt(color);
+			if (key) {
+				t1[key] += (i - r[key]) * (j - c[key]);
+				t2[key] += (j - c[key]) * (j - c[key]);
+				t3[key] += (i - r[key]) * (i - r[key]);
+			}
+		}
+	}
+
+	for (auto& i : area) {
+		phi[i.first] = atan2(2.0f * t1[i.first], (t2[i.first] - t3[i.first])) * 0.5f;
+		if (phi[i.first] < 0) phi[i.first] += CV_PI;
+	}
+
+	int length = 200;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			Vec3b color = img.at<Vec3b>(i, j);
+			int key = colorToInt(color);
+			if (key && area[key] < th && phi[key] >= phi_low && phi[key] <= phi_high) {
+				newImg.at<Vec3b>(i, j) = color;
+			}
+		}
+	}
+
+	for (auto& i : phi) {
+		int key = i.first;
+		if (area[key] < th && phi[key] >= phi_low && phi[key] <= phi_high) {
+			Point p1, p2;
+			p1.x = c[key] - length * cos(phi[key]);
+			p1.y = r[key] - length * sin(phi[key]);
+			p2.x = c[key] + length * cos(phi[key]);
+			p2.y = r[key] + length * sin(phi[key]);
+			line(newImg, p1, p2, Scalar(0, 0, 0), 2);
+		}
+	}
+
+	return newImg;
+}
+
+void displayFilteredObjects() {
+	Mat src;
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		src = imread(fname);
+
+		int th;
+		float phi_low, phi_high;
+
+		printf("\nTh: ");
+		scanf("%d", &th);
+
+		printf("\nPhi_low: ");
+		scanf("%f", &phi_low);
+
+		printf("\nPhi_high: ");
+		scanf("%f", &phi_high);
+
+		Mat filteredImg = filterObjects(src, th, phi_low, phi_high);
+
+		namedWindow("Filtered Image", WINDOW_AUTOSIZE);
+		imshow("Filtered Image", filteredImg);
+
+		waitKey(0);
+	}
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -1032,6 +1373,10 @@ int main()
 		printf(" 24 - Implement the multilevel thresholding algorithm from section.\n");
 		printf(" 25 - Enhance the multilevel thresholding algorithm using the Floyd-Steinberg dithering from section 3.4.\n");
 		printf(" 26 - Perform multilevel thresholding on a color image by applying the procedure from 3.3 on the Hue channel from the HSV color-space representation of the image. Modify only the Hue values, keeping the S and V channels unchanged or setting them to their maximum possible value. Transform the result back to RGB color-space for viewing.\n");
+
+		//Lab 4
+		printf(" 27 - For a specific object in a labeled image selected by a mouse click, compute the object’s area, center of mass, axis of elongation, perimeter, thinness ratio and aspect ratio.\n");
+		printf(" 28 - Create a new processing function which takes as input a labeled image and keeps in the output image only the objects that have specific area and orientation.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -1121,6 +1466,14 @@ int main()
 				break;
 			case 26:
 				displayMultilevelThresholdingOnColorImage();
+				break;
+
+			//Lab 4
+			case 27:
+				mouseClickObjectProperties();
+				break;
+			case 28:
+				displayFilteredObjects();
 				break;
 		}
 	}
