@@ -5,6 +5,8 @@
 #include "common.h"
 #include <opencv2/core/utils/logger.hpp>
 #include <math.h>
+#include <unordered_set>
+#include <random>
 
 wchar_t* projectPath;
 
@@ -1329,6 +1331,230 @@ void displayFilteredObjects() {
 	}
 }
 
+// Lab 5
+
+//Implement the breadth first traversal component labeling algorithm(Algorithm 1).You
+//should be able to easily switch between the neighborhood types of 4 and 8.
+std::vector<std::vector<int>> bfsComponentLabeling(Mat img, int neighborhood) {
+	std::vector<std::vector<int>> labels(img.rows, std::vector<int>(img.cols, 0));
+	
+	if (neighborhood != 4 && neighborhood != 8)
+		return labels;
+
+	int di[] = {-1, 0, 1, 0, -1, 1, 1, -1};
+	int dj[] = {0, -1, 0, 1, -1, -1, 1, 1};
+
+	int label = 0;
+	
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<unsigned char>(i, j) == 0 && labels[i][j] == 0) {
+				label++;
+
+				std::queue<std::pair<int, int>> q;
+				q.push({ i, j });
+
+				while (!q.empty()) {
+					auto p = q.front();
+					q.pop();
+
+					int ci = p.first;
+					int cj = p.second;
+
+					for (int k = 0; k < neighborhood; k++) {
+						int ni = ci + di[k];
+						int nj = cj + dj[k];
+
+						if (ni >= 0 && ni < img.rows && nj >= 0 && nj < img.cols) {
+							if (img.at<uchar>(ni, nj) == 0 && labels[ni][nj] == 0) {
+								labels[ni][nj] = label;
+								q.push({ ni, nj });
+							}
+						}
+					}
+
+				}
+			}
+		}
+	}
+
+	return labels;
+}
+
+//Implement a function which generates a color image from a label matrix by assigning a
+//random color to each label.Display the results.
+
+void generateColorImage() {
+	Mat img = imread("Images/letters.bmp", IMREAD_GRAYSCALE);
+	Mat newImg(img.rows, img.cols, CV_8UC3);
+
+	std::vector<std::vector<int>> labels = bfsComponentLabeling(img, 4);
+
+	std::vector<Vec3b> colors(1000, Vec3b(0, 0, 0));
+
+	std::default_random_engine gen;
+	std::uniform_int_distribution<int> d(0, 255);
+
+	for (int i = 0; i < labels.size(); i++) {
+		for (int j = 0; j < labels[i].size(); j++) {
+			if (labels[i][j] != 0) {
+				if (colors[labels[i][j]] == Vec3b(0, 0, 0)) {
+					Vec3b newColor = Vec3b(d(gen), d(gen), d(gen));
+					colors[labels[i][j]] = newColor;
+				}
+				
+				newImg.at<Vec3b>(i, j) = colors[labels[i][j]];
+			}
+			else {
+				newImg.at<Vec3b>(i, j) = Vec3b(255, 255, 255);
+			}
+		}
+	}
+
+	imshow("init img", img);
+	imshow("new img", newImg);
+	waitKey(0);
+}
+
+//Implement the two - pass component labeling algorithm.Display the intermediate results
+//you get after the first pass over the image.Compare this to the final results and to the
+//previous algorithm.
+std::pair<std::vector<std::vector<int>>, std::vector<std::vector<int>>> twoPassLabeling(Mat img) {
+	std::vector<std::vector<int>> labels(img.rows, std::vector<int>(img.cols, 0));
+
+	int di[] = { 0, -1, -1, -1 };
+	int dj[] = { -1, -1, 0, 1 };
+
+	int label = 0;
+
+	std::vector<std::vector<int>> edges(1000);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<unsigned char>(i, j) == 0 && labels[i][j] == 0) {
+				std::vector<std::pair<int, int>> L;
+
+				for (int k = 0; k < 4; k++) {
+					int ni = i + di[k];
+					int nj = j + dj[k];
+
+					if (ni >= 0 && ni < img.rows && nj >= 0 && nj < img.cols) {
+						if (labels[ni][nj] > 0) {
+							L.push_back({ ni, nj });
+						}
+					}
+				}
+
+				if (L.size() == 0) {
+					label++;
+					labels[i][j] = label;
+				}
+				else {
+					int x = labels[L[0].first][L[0].second];
+					for (auto& y : L) {
+						x = min(x, labels[y.first][y.second]);
+					}
+
+					labels[i][j] = x;
+
+					for (auto& y : L) {
+						if (labels[y.first][y.second] != x) {
+							edges[labels[y.first][y.second]].push_back(x);
+							edges[x].push_back(labels[y.first][y.second]);
+						}
+					}
+ 				}
+			}
+		}
+	}
+
+	std::vector<std::vector<int>> interLabels(img.rows, std::vector<int>(img.cols, 0));
+	for (int i = 0; i < labels.size(); i++) {
+		for (int j = 0; j < labels[i].size(); j++) {
+			interLabels[i][j] = labels[i][j];
+		}
+	}
+
+	int newLabel = 0;
+	std::vector<int> newLabels(label + 1);
+	for (int i = 1; i <= label; i++) {
+		if (newLabels[i] == 0) {
+			newLabel++;
+			std::queue<int> Q;
+			newLabels[i] = newLabel;
+			Q.push(i);
+
+			while (!Q.empty()) {
+				int x = Q.front();
+				Q.pop();
+
+				for (auto y : edges[x]) {
+					if (newLabels[y] == 0) {
+						newLabels[y] = newLabel;
+						Q.push(y);
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < labels.size(); i++) {
+		for (int j = 0; j < labels[i].size(); j++) {
+			labels[i][j] = newLabels[labels[i][j]];
+		}
+	}
+
+	return { interLabels, labels };
+}
+
+void generateColorImageTwoPasses() {
+	Mat img = imread("Images/shapes.bmp", IMREAD_GRAYSCALE);
+	Mat newImg1(img.rows, img.cols, CV_8UC3);
+	Mat newImg2(img.rows, img.cols, CV_8UC3);
+
+	std::pair<std::vector<std::vector<int>>, std::vector<std::vector<int>>> result = twoPassLabeling(img);
+	std::vector<std::vector<int>> interLabels = result.first;
+	std::vector<std::vector<int>> labels = result.second;
+
+	std::vector<Vec3b> colors1(1000, Vec3b(0, 0, 0));
+	std::vector<Vec3b> colors2(1000, Vec3b(0, 0, 0));
+
+	std::default_random_engine gen;
+	std::uniform_int_distribution<int> d(0, 255);
+
+	for (int i = 0; i < labels.size(); i++) {
+		for (int j = 0; j < labels[i].size(); j++) {
+			if (labels[i][j] != 0) {
+				if (colors1[labels[i][j]] == Vec3b(0, 0, 0)) {
+					Vec3b newColor = Vec3b(d(gen), d(gen), d(gen));
+					colors1[labels[i][j]] = newColor;
+				}
+
+				newImg1.at<Vec3b>(i, j) = colors1[labels[i][j]];
+			}
+			else {
+				newImg1.at<Vec3b>(i, j) = Vec3b(255, 255, 255);
+			}
+
+			if (interLabels[i][j] != 0) {
+				if (colors2[interLabels[i][j]] == Vec3b(0, 0, 0)) {
+					Vec3b newColor = Vec3b(d(gen), d(gen), d(gen));
+					colors2[interLabels[i][j]] = newColor;
+				}
+				newImg2.at<Vec3b>(i, j) = colors2[interLabels[i][j]];
+			}
+			else {
+				newImg2.at<Vec3b>(i, j) = Vec3b(255, 255, 255);
+			}
+		}
+	}
+
+	imshow("init img", img);
+	imshow("inter img", newImg2);
+	imshow("new img", newImg1);
+	waitKey(0);
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -1377,6 +1603,10 @@ int main()
 		//Lab 4
 		printf(" 27 - For a specific object in a labeled image selected by a mouse click, compute the object’s area, center of mass, axis of elongation, perimeter, thinness ratio and aspect ratio.\n");
 		printf(" 28 - Create a new processing function which takes as input a labeled image and keeps in the output image only the objects that have specific area and orientation.\n");
+
+		//Lab 5
+		printf(" 29 - Implement the breadth first traversal component labeling algorithm(Algorithm 1).You should be able to easily switch between the neighborhood types of 4 and 8.\n");
+		printf(" 30 - Implement the two - pass component labeling algorithm.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -1475,6 +1705,15 @@ int main()
 			case 28:
 				displayFilteredObjects();
 				break;
+
+			//Lab5
+			case 29:
+				generateColorImage();
+				break;
+			case 30:
+				generateColorImageTwoPasses();
+				break;
+
 		}
 	}
 	while (op!=0);
