@@ -1555,6 +1555,207 @@ void generateColorImageTwoPasses() {
 	waitKey(0);
 }
 
+// Lab 6
+// Implement the border tracing algorithm and draw the object contour on an image having a single object.
+
+bool isInside(int i, int j, int rows, int cols) {
+	return i >= 0 && i < rows && j >= 0 && j < cols;
+}
+
+void borderTracingAlgorithm(Mat img) {
+	Mat result;
+	img.copyTo(result);
+
+	int arrDirI[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+	int arrDirJ[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+	int dir = 7;
+	std::pair<int, int> p1, p2, current, prev;
+
+	bool found = false;
+	for (int i = 0; i < img.rows && !found; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) != Vec3b(255, 255, 255)) {
+				p1 = { i, j };
+				p2 = p1;
+				found = true;
+				break;
+			}
+		}
+	}
+
+	if (!found) return; 
+
+	current = p1;
+	prev = p1;
+
+	int ok = true;
+	int n = 0;
+
+	while (!(current == p2 && prev == p1 && n >= 2)) {
+		n++;
+		dir = dir % 2 == 0 ? (dir + 7) % 8 : (dir + 6) % 8;
+		while (!(isInside(current.first + arrDirI[dir], current.second + arrDirJ[dir], img.rows, img.cols) &&
+			img.at<Vec3b>(current.first + arrDirI[dir], current.second + arrDirJ[dir]) != Vec3b(255, 255, 255))) {
+			dir = (dir + 1) % 8;
+		}
+
+		prev = current;
+		current = { current.first + arrDirI[dir], current.second + arrDirJ[dir] };
+
+		if (ok) {
+			p2 = current;
+			ok = false;
+		}
+
+		Point center(current.second, current.first);
+		Scalar color(0, 0, 255);
+		int radius = 1;
+		int thickness = -1;
+
+		circle(result, center, radius, color, thickness);
+	}
+
+	imshow("img", img);
+	imshow("res", result);
+	waitKey(0);
+}
+
+void displayBorderTracingAlgorithm() {
+	Mat src;
+	char fname[MAX_PATH];
+	while (openFileDlg(fname)) {
+		src = imread(fname);
+
+		int th;
+		float phi_low, phi_high;
+
+		borderTracingAlgorithm(src);
+	}
+}
+
+
+//Starting from the border tracing algorithm write the algorithm that builds the chain code
+//and derivative chain code for an object.Compute and display(command line or output text
+//	file) both codes(chain code and derivative chain code) for an image with a single object.
+void buildChainCode() {
+	Mat img = imread("Images/triangle_up.bmp", IMREAD_COLOR);
+
+	int arrDirI[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+	int arrDirJ[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+	std::vector<int> chaincode;
+	std::vector<int> derivative;
+
+	int dir = 7;
+	std::pair<int, int> p1, p2, current, prev;
+
+	bool found = false;
+	for (int i = 0; i < img.rows && !found; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<Vec3b>(i, j) != Vec3b(255, 255, 255)) {
+				p1 = { i, j };
+				p2 = p1;
+				found = true;
+				break;
+			}
+		}
+	}
+
+	if (!found) return;
+
+	current = p1;
+	prev = p1;
+
+	int ok = true;
+	int n = 0;
+
+	while (!(current == p2 && prev == p1 && n >= 2)) {
+		n++;
+		dir = dir % 2 == 0 ? (dir + 7) % 8 : (dir + 6) % 8;
+		while (!(isInside(current.first + arrDirI[dir], current.second + arrDirJ[dir], img.rows, img.cols) &&
+			img.at<Vec3b>(current.first + arrDirI[dir], current.second + arrDirJ[dir]) != Vec3b(255, 255, 255))) {
+			dir = (dir + 1) % 8;
+		}
+
+		prev = current;
+		current = { current.first + arrDirI[dir], current.second + arrDirJ[dir] };
+
+		if (ok) {
+			p2 = current;
+			ok = false;
+		}
+
+		chaincode.push_back(dir);
+	}
+
+	for (int i = 0; i < chaincode.size(); i++) {
+		if (i == 0) {
+			derivative.push_back((chaincode[i] - 7 + 8) % 8);
+		}
+		else {
+			derivative.push_back((chaincode[i] - chaincode[i - 1] + 8) % 8);
+		}
+	}
+
+	FILE* f = fopen("result.txt", "w");
+
+	fprintf(f, "Chain code: ");
+	for (int i = 0; i < chaincode.size(); i++) {
+		fprintf(f, "%d ", chaincode[i]);
+	}
+
+	fprintf(f, "\nDerivative: ");
+	for (int i = 0; i < derivative.size(); i++) {
+		fprintf(f, "%d ", derivative[i]);
+	}
+
+	fclose(f);
+}
+
+//Implement a function that reconstructs(draws) the border of an object over an image having
+//as inputs the start point coordinates and the chain code in 8 - neighborhood(reconstruct.txt).
+//Load the image gray_background.bmp and apply the function that reconstructs the border.
+//You should obtain the contour of the word “EXCELLENT”(having all the letters
+//connected).
+
+void borderReconstruction() {
+	Mat img = imread("Images/gray_background.bmp", IMREAD_COLOR);
+
+	FILE* f = fopen("Images/reconstruct.txt", "r");
+
+	int arrDirI[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+	int arrDirJ[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+
+	int x, y;
+
+	fscanf(f, "%d", &x);
+	fscanf(f, "%d", &y);
+
+	int n;
+	fscanf(f, "%d", &n);
+
+	for (int i = 0; i < n; i++) {
+		Point center(y, x);
+		Scalar color(0, 0, 255);
+		int radius = 1;
+		int thickness = -1;
+
+		circle(img, center, radius, color, thickness);
+
+		int dir;
+		fscanf(f, "%d", &dir);
+
+		x += arrDirI[dir];
+		y += arrDirJ[dir];
+	}
+
+	fclose(f);
+
+	imshow("img", img);
+	waitKey(0);
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -1607,6 +1808,11 @@ int main()
 		//Lab 5
 		printf(" 29 - Implement the breadth first traversal component labeling algorithm(Algorithm 1).You should be able to easily switch between the neighborhood types of 4 and 8.\n");
 		printf(" 30 - Implement the two - pass component labeling algorithm.\n");
+
+		//Lab 6
+		printf(" 31 - Implement the border tracing algorithm and draw the object contour on an image having a single object.\n");
+		printf(" 32 - Implement a function which generates a color image from a label matrix by assigning a random color to each label.Display the results.\n");
+		printf(" 33 - Implement a function that reconstructs(draws) the border of an object over an image having as inputs the start point coordinates and the chain code in 8 - neighborhood.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -1712,6 +1918,17 @@ int main()
 				break;
 			case 30:
 				generateColorImageTwoPasses();
+				break;
+
+			//Lab6
+			case 31:
+				displayBorderTracingAlgorithm();
+				break;
+			case 32:
+				buildChainCode();
+				break;
+			case 33:
+				borderReconstruction();
 				break;
 
 		}
