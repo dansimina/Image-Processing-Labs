@@ -757,47 +757,47 @@ Mat multilevelThresholdingAlgorithm(Mat img) {
 	img.copyTo(newImg);
 
 	float* normalizedHistogram = probabilityDensityFunction(newImg, 256);
+	
 	int WH = 5;
 	int windowWidth = 2 * WH + 1;
-
-	std::deque<int> q;
-
 	float TH = 0.0003;
 
-	for (int i = WH; i <= 255 - WH; i++) {
+	std::deque<int> Q;
+
+	for (int i = WH; i < 256 - WH; i++) {
 		float avg = 0.0;
 		bool ok = true;
-		for (int j = i - WH; j <= i + WH; j++) {
-			avg += normalizedHistogram[j];
-			if (j != i && normalizedHistogram[i] < normalizedHistogram[j]) {
+
+		for (int k = i - WH; k <= i + WH && ok; k++) {
+			avg += normalizedHistogram[k];
+			if (i != k && normalizedHistogram[i] < normalizedHistogram[k]) {
 				ok = false;
 			}
 		}
-		avg /= windowWidth;
 
+		avg /= windowWidth;
 		if (normalizedHistogram[i] > avg + TH && ok) {
-			q.push_back(i);
+			Q.push_back(i);
 		}
 	}
 
-	q.push_front(0);
-	q.push_back(255);
+	Q.push_front(0);
+	Q.push_back(255);
 
 	for (int i = 0; i < newImg.rows; i++) {
 		for (int j = 0; j < newImg.cols; j++) {
-			int newPixel = 0;
+			uchar oldPixel = newImg.at<uchar>(i, j);
+			uchar newPixel = 0;
 			int dist = 256;
 
-			int oldPixel = newImg.at<unsigned char>(i, j);
-
-			for (int k = 0; k < q.size(); k++) {
-				if (abs(oldPixel - q[k]) < dist) {
-					dist = abs(oldPixel - q[k]);
-					newPixel = q[k];
+			for (int k = 0; k < Q.size(); k++) {
+				if (abs(Q[k] - oldPixel) < dist) {
+					newPixel = Q[k];
+					dist = abs(Q[k] - oldPixel);
 				}
 			}
 
-			newImg.at<unsigned char>(i, j) = newPixel;
+			newImg.at<uchar>(i, j) = newPixel;
 		}
 	}
 
@@ -1345,35 +1345,113 @@ std::vector<std::vector<int>> bfsComponentLabeling(Mat img, int neighborhood) {
 	int dj[] = {0, -1, 0, 1, -1, -1, 1, 1};
 
 	int label = 0;
-	
+
 	for (int i = 0; i < img.rows; i++) {
 		for (int j = 0; j < img.cols; j++) {
-			if (img.at<unsigned char>(i, j) == 0 && labels[i][j] == 0) {
+			if (img.at<uchar>(i, j) == 0 && labels[i][j] == 0) {
+				std::queue<std::pair<int, int>> Q;
 				label++;
 
-				std::queue<std::pair<int, int>> q;
-				q.push({ i, j });
+				Q.push({ i, j });
+				labels[i][j] = label;
 
-				while (!q.empty()) {
-					auto p = q.front();
-					q.pop();
-
-					int ci = p.first;
-					int cj = p.second;
+				while (!Q.empty()) {
+					auto q = Q.front();
+					Q.pop();
 
 					for (int k = 0; k < neighborhood; k++) {
-						int ni = ci + di[k];
-						int nj = cj + dj[k];
+						int ni = q.first + di[k];
+						int nj = q.second + dj[k];
 
-						if (ni >= 0 && ni < img.rows && nj >= 0 && nj < img.cols) {
-							if (img.at<uchar>(ni, nj) == 0 && labels[ni][nj] == 0) {
-								labels[ni][nj] = label;
-								q.push({ ni, nj });
-							}
+						if (ni >= 0 && ni < img.rows && nj >= 0 && nj < img.cols && img.at<uchar>(ni, nj) == 0 && labels[ni][nj] == 0) {
+							Q.push({ ni, nj });
+							labels[ni][nj] = label;
 						}
 					}
-
 				}
+
+			}
+		}
+	}
+
+	return labels;
+}
+
+std::vector<std::vector<int>> twoPassComponentLabeling(Mat img) {
+	std::vector<std::vector<int>> labels(img.rows, std::vector<int>(img.cols, 0));
+
+	int dirI[] = {0, -1, -1, -1};
+	int dirJ[] = {-1, -1, 0, 1};
+
+	int label = 0;
+
+	std::vector<std::vector<int>> edges(1000);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) == 0 && labels[i][j] == 0) {
+				std::vector<std::pair<int, int>> L;
+
+				for (int k = 0; k < 4; k++) {
+					if (i + dirI[k] >= 0 && i + dirI[k] < img.rows && j + dirJ[k] >= 0 && j + dirJ[k] < img.cols && labels[i + dirI[k]][j + dirJ[k]] != 0) {
+						L.push_back({ i + dirI[k], j + dirJ[k] });
+					}
+				}
+
+				if (L.size() == 0) {
+					label++;
+					labels[i][j] = label;
+				}
+				else {
+					int x = labels[L[0].first][L[0].second];
+
+					for (int k = 1; k < L.size(); k++) {
+						x = min(x, labels[L[k].first][L[k].second]);
+					}
+
+					labels[i][j] = x;
+
+					for (int k = 1; k < L.size(); k++) {
+						int y = labels[L[k].first][L[k].second];
+						if (x != y) {
+							edges[x].push_back(y);
+							edges[y].push_back(x);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	int newLabel = 0;
+	std::vector<int> newLabels(label + 1, 0);
+
+	for (int i = 1; i <= label; i++) {
+		if (newLabels[i] == 0) {
+			newLabel++;
+			newLabels[i] = newLabel;
+
+			std::queue<int> Q;
+			Q.push(i);
+
+			while (!Q.empty()) {
+				auto q = Q.front();
+				Q.pop();
+
+				for (int k = 0; k < edges[q].size(); k++) {
+					if (newLabels[edges[q][k]] == 0) {
+						newLabels[edges[q][k]] = newLabel;
+						Q.push(edges[q][k]);
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (labels[i][j] != 0) {
+				labels[i][j] = newLabels[labels[i][j]];
 			}
 		}
 	}
@@ -1389,6 +1467,7 @@ void generateColorImage() {
 	Mat newImg(img.rows, img.cols, CV_8UC3);
 
 	std::vector<std::vector<int>> labels = bfsComponentLabeling(img, 4);
+	//std::vector<std::vector<int>> labels = twoPassComponentLabeling(img);
 
 	std::vector<Vec3b> colors(1000, Vec3b(0, 0, 0));
 
@@ -1566,55 +1645,49 @@ void borderTracingAlgorithm(Mat img) {
 	Mat result;
 	img.copyTo(result);
 
-	int arrDirI[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
-	int arrDirJ[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+	int dirI[] = { 0, -1, -1, -1, 0, 1, 1, 1 };
+	int dirJ[] = { 1, 1, 0, -1, -1, -1, 0, 1 };
 
-	int dir = 7;
-	std::pair<int, int> p1, p2, current, prev;
+	int dir = 7, n = 0;
+	std::pair<int, int> p0, p1, current, prev;
 
 	bool found = false;
 	for (int i = 0; i < img.rows && !found; i++) {
-		for (int j = 0; j < img.cols; j++) {
-			if (img.at<Vec3b>(i, j) != Vec3b(255, 255, 255)) {
-				p1 = { i, j };
-				p2 = p1;
+		for (int j = 0; j < img.cols && !found; j++) {
+			if (img.at<Vec3b>(i, j) == Vec3b(0, 0, 0)) {
+				current = { i, j };
 				found = true;
-				break;
 			}
 		}
 	}
 
-	if (!found) return; 
+	if (!found) return;
 
-	current = p1;
-	prev = p1;
+	p0 = current;
+	p1 = current;
+	prev = current;
 
-	int ok = true;
-	int n = 0;
+	bool ok = true;
 
-	while (!(current == p2 && prev == p1 && n >= 2)) {
+	do {
 		n++;
-		dir = dir % 2 == 0 ? (dir + 7) % 8 : (dir + 6) % 8;
-		while (!(isInside(current.first + arrDirI[dir], current.second + arrDirJ[dir], img.rows, img.cols) &&
-			img.at<Vec3b>(current.first + arrDirI[dir], current.second + arrDirJ[dir]) != Vec3b(255, 255, 255))) {
+		dir = (dir % 2 == 0) ? (dir + 7) % 8 : (dir + 6) % 8;
+		while (!(isInside(current.first + dirI[dir], current.second + dirJ[dir], img.rows, img.cols) &&
+			img.at<Vec3b>(current.first + dirI[dir], current.second + dirJ[dir]) == Vec3b(0, 0, 0))) {
 			dir = (dir + 1) % 8;
 		}
 
 		prev = current;
-		current = { current.first + arrDirI[dir], current.second + arrDirJ[dir] };
+		current = { current.first + dirI[dir], current.second + dirJ[dir] };
 
 		if (ok) {
-			p2 = current;
+			p1 = current;
 			ok = false;
 		}
 
-		Point center(current.second, current.first);
-		Scalar color(0, 0, 255);
-		int radius = 1;
-		int thickness = -1;
+		result.at<Vec3b>(current.first, current.second) = Vec3b(0, 0, 255);
 
-		circle(result, center, radius, color, thickness);
-	}
+	} while (!(n >= 2 && p0 == prev && p1 == current));
 
 	imshow("img", img);
 	imshow("res", result);
