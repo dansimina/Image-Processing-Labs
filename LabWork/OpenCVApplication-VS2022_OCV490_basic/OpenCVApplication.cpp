@@ -1829,6 +1829,375 @@ void borderReconstruction() {
 	waitKey(0);
 }
 
+// Lab 7
+//Add to the OpenCVApplication framework processing functions, which implement the
+//basic morphological operations.
+//Add the facility to apply the morphological operations repeatedly(n times).Input the value
+//of n from the command line.Remark the ‘idempotency’ property of the opening / closing
+//operations(therefore there is no use to apply them repeatedly).
+
+// Dilation
+Mat dilation(Mat img, Mat B, std::pair<int, int> X) {
+	Mat result(img.rows, img.cols, CV_8UC1, 255);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) < 255) {
+				for (int m = 0; m < B.rows; m++) {
+					for (int n = 0; n < B.cols; n++) {
+						if (B.at<uchar>(m, n) == 1) {
+							int ri = i + (m - X.first);
+							int rj = j + (n - X.second);
+
+							if (ri >= 0 && ri < result.rows && rj >= 0 && rj < result.cols) {
+								result.at<uchar>(ri, rj) = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+//Erosion
+Mat erosion(Mat img, Mat B, std::pair<int, int> X) {
+	Mat result(img.rows, img.cols, CV_8UC1, 255);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) < 255) {
+				bool ok = true;
+
+				for (int m = 0; m < B.rows && ok; m++) {
+					for (int n = 0; n < B.cols && ok; n++) {
+						if (B.at<uchar>(m, n) == 1) {
+							int ri = i + (m - X.first);
+							int rj = j + (n - X.second);
+
+							if (!(ri >= 0 && ri < img.rows && rj >= 0 && rj < img.cols && img.at<uchar>(ri, rj) < 255)) {
+								ok = false;
+							}
+						}
+					}
+				}
+
+				if (ok) {
+					result.at<uchar>(i, j) = 0;
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+Mat applyK(Mat(*func)(Mat, Mat, std::pair<int, int>), Mat img, Mat B, std::pair<int, int> X, int k) {
+	Mat result;
+	img.copyTo(result);
+
+	for (int i = 0; i < k; i++) {
+		result = func(result, B, X);
+	}
+
+	return result;
+}
+
+Mat opening(Mat img, Mat B, std::pair<int, int> X, int k) {
+	Mat result;
+	result = applyK(erosion, img, B, X, k);
+	result = applyK(dilation, result, B, X, k);
+
+	return result;
+}
+
+Mat closeing(Mat img, Mat B, std::pair<int, int> X, int k) {
+	Mat result;
+	result = applyK(dilation, img, B, X, k);
+	result = applyK(erosion, result, B, X, k);
+
+	return result;
+}
+
+void displayDilation() {
+	Mat src;
+	char fname[MAX_PATH];
+	int k;
+
+	std::cout << "Enter the number of iterations (K): ";
+	std::cin >> k;
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+
+		int bSize = 3;
+		Mat B = Mat::ones(bSize, bSize, CV_8UC1);
+
+		Mat res = applyK(dilation, src, B, { 1, 1 }, k);
+
+		imshow("Original Image", src);
+		imshow("Dilated Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+void displayErosion() {
+	Mat src;
+	char fname[MAX_PATH];
+	int k;
+
+	std::cout << "Enter the number of iterations (K): ";
+	std::cin >> k;
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+
+		int bSize = 3;
+		Mat B = Mat::ones(bSize, bSize, CV_8UC1);
+
+		Mat res = opening(src, B, { 1, 1 }, k);
+
+		imshow("Original Image", src);
+		imshow("Eroded Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+void displayOpening() {
+	Mat src;
+	char fname[MAX_PATH];
+	int k;
+
+	std::cout << "Enter the number of iterations (K): ";
+	std::cin >> k;
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+
+		int bSize = 3;
+		Mat B = Mat::ones(bSize, bSize, CV_8UC1);
+
+		Mat res = opening(src, B, { 1, 1 }, k);
+
+		imshow("Original Image", src);
+		imshow("Opened Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+void displayCloseing() {
+	Mat src;
+	char fname[MAX_PATH];
+	int k;
+
+	std::cout << "Enter the number of iterations (K): ";
+	std::cin >> k;
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+
+		int bSize = 3;
+		Mat B = Mat::ones(bSize, bSize, CV_8UC1);
+
+		Mat res = closeing(src, B, { 1, 1 }, k);
+
+		imshow("Original Image", src);
+		imshow("Closed Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+//Implement the boundary extraction algorithm.
+Mat difference(Mat A, Mat B) {
+	Mat result;
+
+	if (A.rows != B.rows || A.cols != B.cols)
+		return result;
+
+	A.copyTo(result);
+
+	for (int i = 0; i < A.rows; i++) {
+		for (int j = 0; j < A.cols; j++) {
+			if (A.at<uchar>(i, j) < 255 && B.at<uchar>(i, j) < 255) {
+				result.at<uchar>(i, j) = 255;
+			}
+		}
+	}
+
+	return result;
+}
+
+Mat boundaryExtractionAlgorithm(Mat img) {
+	Mat result;
+
+	int bSize = 3;
+	Mat B = Mat::ones(bSize, bSize, CV_8UC1);
+
+	result = erosion(img, B, { 1, 1 });
+	result = difference(img, result);
+	return result;
+}
+
+void displayBoundaryExtractionAlgorithm() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		Mat res = boundaryExtractionAlgorithm(src);
+
+		imshow("Original Image", src);
+		imshow("Boundary Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+Mat intersection(Mat A, Mat B) {
+	Mat result;
+
+	if (A.rows != B.rows || A.cols != B.cols)
+		return result;
+
+	result = Mat(A.rows, A.cols, CV_8UC1, 255);
+
+	for (int i = 0; i < A.rows; i++) {
+		for (int j = 0; j < A.cols; j++) {
+			if (A.at<uchar>(i, j) < 255 && B.at<uchar>(i, j) < 255) {
+				result.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	return result;
+}
+
+Mat reunion(Mat A, Mat B) {
+	Mat result;
+
+	if (A.rows != B.rows || A.cols != B.cols)
+		return result;
+
+	result = Mat(A.rows, A.cols, CV_8UC1, 255);
+
+	for (int i = 0; i < A.rows; i++) {
+		for (int j = 0; j < A.cols; j++) {
+			if (A.at<uchar>(i, j) < 255 || B.at<uchar>(i, j) < 255) {
+				result.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	return result;
+}
+
+Mat complement(Mat img) {
+	Mat result(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<uchar>(i, j) < 255) {
+				result.at<uchar>(i, j) = 255;
+			}
+			else {
+				result.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	return result;
+}
+
+bool eq(Mat x, Mat y) {
+	if (x.rows != y.rows || x.cols != y.cols) {
+		return false;
+	}
+
+	for (int i = 0; i < x.rows; i++) {
+		for (int j = 0; j < x.cols; j++) {
+			if (x.at<uchar>(i, j) != y.at<uchar>(i, j)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+Mat regionFillingAlgorithm(Mat img) {
+	Mat result;
+	Mat B = Mat(3, 3, CV_8UC1, 255);
+	B.at<uchar>(0, 1) = 1; // Object pixel
+	B.at<uchar>(1, 0) = 1;
+	B.at<uchar>(1, 2) = 1;
+	B.at<uchar>(2, 1) = 1;
+	B.at<uchar>(1, 1) = 1;
+
+	bool found = false;
+	std::pair<int, int> p;
+	for (int i = 0; i < img.rows && !found; i++) {
+		for (int j = 0; j < img.cols && !found; j++) {
+			if (img.at<uchar>(i, j) < 255) { // Object pixel
+				found = true;
+				p = { i, j };
+			}
+		}
+	}
+	if (!found) return img; // No region to fill, return original image
+
+	Mat Xp = Mat(img.rows, img.cols, CV_8UC1, 255);
+	Mat X = Mat(img.rows, img.cols, CV_8UC1, 255);
+	Mat comp = complement(img);
+	X.at<uchar>(p.first, p.second) = 0;
+
+	while (!eq(X, Xp)) {
+		Xp = X.clone();
+		X = dilation(X, B, { 1, 1 });
+		X = intersection(X, comp);
+	}
+
+	result = reunion(X, img);
+	return result;
+}
+void displayRegionFillingAlgorithm() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		Mat res = regionFillingAlgorithm(src);
+
+		imshow("Original Image", src);
+		imshow("New Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -1886,6 +2255,14 @@ int main()
 		printf(" 31 - Implement the border tracing algorithm and draw the object contour on an image having a single object.\n");
 		printf(" 32 - Implement a function which generates a color image from a label matrix by assigning a random color to each label.Display the results.\n");
 		printf(" 33 - Implement a function that reconstructs(draws) the border of an object over an image having as inputs the start point coordinates and the chain code in 8 - neighborhood.\n");
+
+		//Lab 7
+		printf(" 34 - Dilation\n");
+		printf(" 35 - Erosion\n");
+		printf(" 36 - Opening\n");
+		printf(" 37 - Closeing\n");
+		printf(" 38 - Implement the boundary extraction algorithm.\n");
+		printf(" 39 - Implement the region filling algorithm.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -2004,6 +2381,25 @@ int main()
 				borderReconstruction();
 				break;
 
+			//Lab7
+			case 34:
+				displayDilation();
+				break;
+			case 35:
+				displayErosion();
+				break;
+			case 36:
+				displayOpening();
+				break;
+			case 37:
+				displayCloseing();
+				break;
+			case 38:
+				displayBoundaryExtractionAlgorithm();
+				break;
+			case 39:
+				displayRegionFillingAlgorithm();
+				break;
 		}
 	}
 	while (op!=0);
