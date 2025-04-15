@@ -2148,7 +2148,7 @@ bool eq(Mat x, Mat y) {
 Mat regionFillingAlgorithm(Mat img) {
 	Mat result;
 	Mat B = Mat(3, 3, CV_8UC1, 255);
-	B.at<uchar>(0, 1) = 1; // Object pixel
+	B.at<uchar>(0, 1) = 1;
 	B.at<uchar>(1, 0) = 1;
 	B.at<uchar>(1, 2) = 1;
 	B.at<uchar>(2, 1) = 1;
@@ -2158,13 +2158,13 @@ Mat regionFillingAlgorithm(Mat img) {
 	std::pair<int, int> p;
 	for (int i = 0; i < img.rows && !found; i++) {
 		for (int j = 0; j < img.cols && !found; j++) {
-			if (img.at<uchar>(i, j) < 255) { // Object pixel
+			if (img.at<uchar>(i, j) < 255 && i < img.rows - 1 && j < img.cols - 1 && (img.at<uchar>(i + 1, j) = 255 || img.at<uchar>(i, j + 1) == 255)) {
 				found = true;
 				p = { i, j };
 			}
 		}
 	}
-	if (!found) return img; // No region to fill, return original image
+	if (!found) return img; 
 
 	Mat Xp = Mat(img.rows, img.cols, CV_8UC1, 255);
 	Mat X = Mat(img.rows, img.cols, CV_8UC1, 255);
@@ -2197,6 +2197,330 @@ void displayRegionFillingAlgorithm() {
 		destroyAllWindows();
 	}
 }
+
+// Lab 8
+//Compute and display the mean and standard deviation, the histogram and the cumulative
+//histogram of the image intensity levels.
+
+double computeMean(Mat img) {
+	int M = img.rows * img.cols;
+	long long sum = 0;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			sum += img.at<uchar>(i, j);
+		}
+	}
+
+	return sum / (double)M;
+}
+
+double computeStandardDeviation(Mat img) {
+	int M = img.rows * img.cols;
+	double d = 0.0;
+
+	double mean = computeMean(img);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			d += (img.at<uchar>(i, j) - mean) * (img.at<uchar>(i, j) - mean);
+		}
+	}
+
+	return sqrt(d / M);
+}
+
+int* computeHist(Mat img) {
+	int* histogram = new int[256]();
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			histogram[img.at<unsigned char>(i, j)]++;
+		}
+	}
+
+	return histogram;
+}
+
+int* cumulativeHist(Mat img) {
+	int* histogram = computeHist(img);
+	for (int i = 1; i < 256; i++) {
+		histogram[i] += histogram[i - 1];
+	}
+
+	return histogram;
+}
+
+void displayMeanAndStandardDeviation() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		double mean = computeMean(src);
+		std::cout << "Mean: " << mean << "\n";
+
+		double d = computeStandardDeviation(src);
+		std::cout << "Standard Deviation: " << d << "\n";
+
+		int* histogram = computeHist(src);
+		showHistogram("histogram", histogram, 256, 200);
+
+		int* cumulativeHistogram = cumulativeHist(src);
+		showHistogram("cumulative histogram", cumulativeHistogram, 256, 200);
+		
+		free(histogram);
+		free(cumulativeHistogram);
+
+		imshow("Original Image", src);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+//Implement the automatic threshold computation(section 8.5) and threshold the images
+//according to this threshold.Display the threshold.
+
+int automaticThresholdComputation(Mat img) {
+	// Assuming computeHist allocates memory dynamically
+	int* histogram = computeHist(img);
+	if (!histogram) {
+		throw std::runtime_error("Failed to compute histogram.");
+	}
+
+	float T, Tp;
+
+	int Imin = 255, Imax = 0;
+
+	// Fix: Update bounds based on intensity levels, not histogram values
+	for (int i = 0; i < 256; i++) {
+		if (histogram[i] > 0) {
+			Imin = min(Imin, i);
+			Imax = max(Imax, i);
+		}
+	}
+
+	// Handle empty histogram case
+	if (Imin > Imax) {
+		free(histogram);
+		throw std::runtime_error("Empty or invalid histogram.");
+	}
+
+	T = (Imin + Imax) / 2.0;
+	Tp = T;
+
+	do {
+		int Ta = round(T);
+		int N1 = 0, N2 = 0, S1 = 0, S2 = 0;
+
+		for (int i = Imin; i <= Imax; i++) {
+			if (i <= Ta) {
+				S1 += histogram[i] * i;
+				N1 += histogram[i];
+			}
+			else {
+				S2 += histogram[i] * i;
+				N2 += histogram[i];
+			}
+		}
+
+		float u1 = N1 > 0 ? S1 / (float)N1 : 0.0;
+		float u2 = N2 > 0 ? S2 / (float)N2 : 0.0;
+
+		Tp = T;
+		T = (u1 + u2) / 2.0;
+
+	} while (!(std::fabs(T - Tp) < 0.1));
+
+	free(histogram);
+	return (int)T;
+}
+
+Mat grayscaleToBlackAndWhiteWithThreshold(Mat img, int threshold) {
+	Mat binaryImg(img.rows, img.cols, CV_8UC1);
+
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			if (img.at<unsigned char>(i, j) > threshold) {
+				binaryImg.at<unsigned char>(i, j) = 255;
+			}
+			else {
+				binaryImg.at<unsigned char>(i, j) = 0;
+			}
+		}
+	}
+
+	return binaryImg;
+}
+
+
+
+void displayAutomaticThresholdComputation() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int T = automaticThresholdComputation(src);
+		std::cout << "T: " << T << "\n";
+
+		Mat newImg = grayscaleToBlackAndWhiteWithThreshold(src, T);
+
+
+		imshow("Original Image", src);
+		imshow("Binary Image", newImg);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+//Implement the histogram transformation functions(section 8.6) for histogram
+//stretching / shrinking, gamma correction, histogram slide.Input the limits
+//MIN
+//out
+//,
+//MAX
+//g g, the
+//out
+//gamma coefficient and the brightness increase value from the console.After each
+//processing display the histograms of the source and destination images.
+
+Mat stretchingOrShrinking(Mat img, int gOutMin, int gOutMax) {
+	int* histogram = computeHist(img);
+
+	Mat newImg(img.rows, img.cols, CV_8UC1);
+
+	int gInMin = 0;
+	int gInMax = 0;
+
+	for (int i = 0; i < 256; i++) {
+		if (histogram[i] > 0) {
+			gInMin = i;
+			break;
+		}
+	}
+
+	for (int i = 255; i >= 0; i--) {
+		if (histogram[i] > 0) {
+			gInMax = i;
+			break;
+		}
+	}
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			int gIn = img.at<uchar>(i, j);
+			int gOut = gOutMin + (gIn - gInMin) * ((gOutMax - gOutMin) / (gInMax - gInMin));
+			newImg.at<uchar>(i, j) = gOut;
+		}
+	}
+
+	delete(histogram);
+	return newImg;
+}
+
+void displayStretchingOrShrinking() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int gOutMin, gOutMax;;
+
+		std::cout << "\ngOutMin";
+		std::cin >> gOutMin;
+		std::cout << "\ngOutMax";
+		std::cin >> gOutMax;
+
+
+		Mat stretchingOrShrinkingImg = stretchingOrShrinking(src, gOutMin, gOutMax);
+
+		imshow("Original Image", src);
+		imshow("Histogram stretching / shrinking Image", stretchingOrShrinkingImg);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+Mat gammaCorrection(Mat img, float gamma) {
+	Mat newImg(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			newImg.at<uchar>(i, j) = 255 * std::pow(img.at<uchar>(i, j) / 255.0, gamma);
+		}
+	}
+
+	return newImg;
+}
+
+void displayGammaCorrection() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int gamma;
+		std::cout << "\ngamma: ";
+		std::cin >> gamma;
+
+		Mat gammaCorrectionImg = gammaCorrection(src, gamma);
+
+		imshow("Original Image", src);
+		imshow("Gamma correction", gammaCorrectionImg);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+Mat histogramSlide(Mat img, int offset) {
+	Mat newImg(img.rows, img.cols, CV_8UC1);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			newImg.at<uchar>(i, j) = max(0, min(255, img.at<uchar>(i, j) + offset));
+		}
+	}
+
+	return newImg;
+}
+
+void displayHistogramSlide() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int offset;
+		std::cout << "\noffset: ";
+		std::cin >> offset;
+
+		Mat histogramSlideImg = histogramSlide(src, offset);
+
+		imshow("Original Image", src);
+		imshow("Histogram slide", histogramSlideImg);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+//Tema 4, si comp cu equalizeHist
 
 int main() 
 {
@@ -2264,144 +2588,168 @@ int main()
 		printf(" 38 - Implement the boundary extraction algorithm.\n");
 		printf(" 39 - Implement the region filling algorithm.\n");
 
+		//Lab 8
+		printf(" 40 - Compute and display the mean and standard deviation, the histogram and the cumulative histogram of the image intensity levels.\n");
+		printf(" 41 - Implement the automatic threshold computation (section 8.5) and threshold the images according to this threshold.Display the threshold.\n");
+		printf(" 42 - Implement the histogram transformation functions(section 8.6) for histogram stretching / shrinking\n");
+		printf(" 43 - Implement the histogram transformation functions(section 8.6) for histogram gamma correction\n");
+		printf(" 44 - Implement the histogram transformation functions(section 8.6) for histogram histogram slide\n");
+
+
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d",&op);
 		switch (op)
 		{
-			case 1:
-				testOpenImage();
-				break;
-			case 2:
-				testOpenImagesFld();
-				break;
-			case 3:
-				testNegativeImage();
-				break;
-			case 4:
-				testNegativeImageFast();
-				break;
-			case 5:
-				testColor2Gray();
-				break;
-			case 6:
-				testImageOpenAndSave();
-				break;
-			case 7:
-				testBGR2HSV();
-				break;
-			case 8:
-				testResize();
-				break;
-			case 9:
-				testCanny();
-				break;
-			case 10:
-				testVideoSequence();
-				break;
-			case 11:
-				testSnap();
-				break;
-			case 12:
-				testMouseClick();
-				break;
+		case 1:
+			testOpenImage();
+			break;
+		case 2:
+			testOpenImagesFld();
+			break;
+		case 3:
+			testNegativeImage();
+			break;
+		case 4:
+			testNegativeImageFast();
+			break;
+		case 5:
+			testColor2Gray();
+			break;
+		case 6:
+			testImageOpenAndSave();
+			break;
+		case 7:
+			testBGR2HSV();
+			break;
+		case 8:
+			testResize();
+			break;
+		case 9:
+			testCanny();
+			break;
+		case 10:
+			testVideoSequence();
+			break;
+		case 11:
+			testSnap();
+			break;
+		case 12:
+			testMouseClick();
+			break;
 
 			//lab 1
-			case 13:
-				changeGrayLevelUsingAdditiveFactor();
-				break;
-			case 14:
-				changeGrayLevelUsingMultiplicativeFactor();
-				break;
-			case 15:
-				createImageWithFourColors();
-				break;
-			case 16:
-				computeMatrixInverse();
-				break;
+		case 13:
+			changeGrayLevelUsingAdditiveFactor();
+			break;
+		case 14:
+			changeGrayLevelUsingMultiplicativeFactor();
+			break;
+		case 15:
+			createImageWithFourColors();
+			break;
+		case 16:
+			computeMatrixInverse();
+			break;
 
 			//Lab 2
-			case 17:
-				imageTo3GrayscaleImages();
-				break;
-			case 18:
-				colorImageToGrayscaleImage();
-				break;
-			case 19:
-				grayscaleToBlackAndWhite();
-				break;
-			case 20:
-				displayHSV();
-				break;
+		case 17:
+			imageTo3GrayscaleImages();
+			break;
+		case 18:
+			colorImageToGrayscaleImage();
+			break;
+		case 19:
+			grayscaleToBlackAndWhite();
+			break;
+		case 20:
+			displayHSV();
+			break;
 
 			//Lab 3
-			case 21:
-				displayHistogram(computeHistogram, 256);
-				break;
-			case 22:
-				displayPDF();
-				break;
-			case 23:
-				displayHistogram(computeHistogram, 100);
-				break;
-			case 24:
-				displayImgAfterMultilevelThresholdingAlgorithm();
-				break;
-			case 25:
-				displayImgAfterMultilevelThresholdingAlgorithmWithFloydSteinberg();
-				break;
-			case 26:
-				displayMultilevelThresholdingOnColorImage();
-				break;
+		case 21:
+			displayHistogram(computeHistogram, 256);
+			break;
+		case 22:
+			displayPDF();
+			break;
+		case 23:
+			displayHistogram(computeHistogram, 100);
+			break;
+		case 24:
+			displayImgAfterMultilevelThresholdingAlgorithm();
+			break;
+		case 25:
+			displayImgAfterMultilevelThresholdingAlgorithmWithFloydSteinberg();
+			break;
+		case 26:
+			displayMultilevelThresholdingOnColorImage();
+			break;
 
 			//Lab 4
-			case 27:
-				mouseClickObjectProperties();
-				break;
-			case 28:
-				displayFilteredObjects();
-				break;
+		case 27:
+			mouseClickObjectProperties();
+			break;
+		case 28:
+			displayFilteredObjects();
+			break;
 
 			//Lab5
-			case 29:
-				generateColorImage();
-				break;
-			case 30:
-				generateColorImageTwoPasses();
-				break;
+		case 29:
+			generateColorImage();
+			break;
+		case 30:
+			generateColorImageTwoPasses();
+			break;
 
 			//Lab6
-			case 31:
-				displayBorderTracingAlgorithm();
-				break;
-			case 32:
-				buildChainCode();
-				break;
-			case 33:
-				borderReconstruction();
-				break;
+		case 31:
+			displayBorderTracingAlgorithm();
+			break;
+		case 32:
+			buildChainCode();
+			break;
+		case 33:
+			borderReconstruction();
+			break;
 
 			//Lab7
-			case 34:
-				displayDilation();
-				break;
-			case 35:
-				displayErosion();
-				break;
-			case 36:
-				displayOpening();
-				break;
-			case 37:
-				displayCloseing();
-				break;
-			case 38:
-				displayBoundaryExtractionAlgorithm();
-				break;
-			case 39:
-				displayRegionFillingAlgorithm();
-				break;
+		case 34:
+			displayDilation();
+			break;
+		case 35:
+			displayErosion();
+			break;
+		case 36:
+			displayOpening();
+			break;
+		case 37:
+			displayCloseing();
+			break;
+		case 38:
+			displayBoundaryExtractionAlgorithm();
+			break;
+		case 39:
+			displayRegionFillingAlgorithm();
+			break;
+
+			//Lab8
+		case 40:
+			displayMeanAndStandardDeviation();
+			break;
+		case 41:
+			displayAutomaticThresholdComputation();
+			break;
+		case 42:
+			displayStretchingOrShrinking();
+			break;
+		case 43:
+			displayGammaCorrection();
+			break;
+		case 44:
+			displayHistogramSlide();
 		}
-	}
+	} 
 	while (op!=0);
 	return 0;
 }
