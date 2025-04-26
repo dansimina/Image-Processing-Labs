@@ -2521,6 +2521,78 @@ void displayHistogramSlide() {
 }
 
 //Tema 4, si comp cu equalizeHist
+//Implement the histogram equalization algorithm(section 8.7).Display the histograms of
+//the source and destination images.
+
+Mat histogramEqualizationAlgorithm(Mat img) {
+	const int L = 255;
+	const int M = img.rows * img.cols;
+
+	Mat result = img.clone();
+
+	int* h = computeHist(img);  // histogram: how many pixels for each intensity
+	double p[256];              // probability density function
+	double c[256];              // cumulative distribution function
+	int* mapping = new int[256]; // final mapping table
+
+	// 1. Compute PDF
+	for (int i = 0; i < 256; i++) {
+		p[i] = (double)h[i] / M;
+	}
+
+	// 2. Compute CPDF
+	c[0] = p[0];
+	for (int i = 1; i < 256; i++) {
+		c[i] = c[i - 1] + p[i];
+	}
+
+	// 3. Compute Mapping
+	for (int i = 0; i < 256; i++) {
+		mapping[i] = round(c[i] * L);
+	}
+
+	delete[] h;  
+	
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			result.at<uchar>(i, j) = mapping[result.at<uchar>(i, j)];
+		}
+	}
+
+	delete[] mapping;
+	return result;
+}
+
+
+void displayHistogramEqualizationAlgorithm() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		
+
+		Mat res = histogramEqualizationAlgorithm(src);
+
+
+		imshow("Original Image", src);
+		imshow("Histogram Equalization Algorithm", res);
+
+		int* hSrc = computeHist(src);
+		int* hRes = computeHist(res);
+
+		showHistogram("hist src", hSrc, 256, 200);
+		showHistogram("hist res", hRes, 256, 200);
+
+		waitKey(0);
+
+		delete[] hSrc;
+		delete[] hRes;
+
+		destroyAllWindows();
+	}
+}
 
 int main() 
 {
@@ -2594,7 +2666,7 @@ int main()
 		printf(" 42 - Implement the histogram transformation functions(section 8.6) for histogram stretching / shrinking\n");
 		printf(" 43 - Implement the histogram transformation functions(section 8.6) for histogram gamma correction\n");
 		printf(" 44 - Implement the histogram transformation functions(section 8.6) for histogram histogram slide\n");
-
+		printf(" 45 - Implement the histogram equalization algorithm\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -2748,6 +2820,10 @@ int main()
 			break;
 		case 44:
 			displayHistogramSlide();
+			break;
+		case 45:
+			displayHistogramEqualizationAlgorithm();
+			break;
 		}
 	} 
 	while (op!=0);
