@@ -2594,6 +2594,112 @@ void displayHistogramEqualizationAlgorithm() {
 	}
 }
 
+// Lab 9
+
+//Implement a general filter, which performs the convolution operator with a custom
+//kernel matrix.The scaling coefficient should be computed automatically as either the
+//reciprocal of the sum of filter coefficients for low pass filters or according to equation
+//(9.20) for high - pass filters.
+
+Mat performConvolutionOperation(cv::Mat img, std::vector<std::vector<int>> kernel) {
+	cv::Mat result = img.clone();
+	int kRows = kernel.size();
+	int kCols = kernel[0].size();
+	int kCenterI = kRows / 2;
+	int kCenterJ = kCols / 2;
+
+	int Sp = 0, Sn = 0;
+	bool lowPass = true;
+
+	for (int i = 0; i < kRows; i++) {
+		for (int j = 0; j < kCols; j++) {
+			if (kernel[i][j] > 0)
+				Sp += kernel[i][j];
+			else {
+				Sn -= kernel[i][j];
+				lowPass = false;
+			}
+		}
+	}
+
+	double S = lowPass ? 1.0 / Sp : 1.0 / (2.0 * max(Sp, Sn));
+
+	for (int i = kCenterI; i < img.rows - kCenterI; i++) {
+		for (int j = kCenterJ; j < img.cols - kCenterJ; j++) {
+			int val = 0;
+			for (int m = 0; m < kRows; m++) {
+				for (int n = 0; n < kCols; n++) {
+					int y = i + m - kCenterI;
+					int x = j + n - kCenterJ;
+					
+					val += kernel[m][n] * img.at<uchar>(y, x);
+				}
+			}
+			
+			if (lowPass) {
+				result.at<uchar>(i, j) = S * val;
+			}
+			else {
+				result.at<uchar>(i, j) = S * val + 127;
+			}
+		}
+	}
+
+	return result;
+}
+
+
+//Test the filter with the kernels from equations
+void testFilters() {
+	Mat img = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+
+	std::vector<std::vector<int>> meanFilter = {
+	{1, 1, 1},
+	{1, 1, 1},
+	{1, 1, 1}
+	};
+
+	std::vector<std::vector<int>> gaussianFilter = {
+	{1, 2, 1},
+	{2, 4, 2},
+	{1, 2, 1}
+	};
+
+	std::vector<std::vector<int>> laplaceFilter1 = {
+	{0, -1, 0},
+	{-1, 4, -1},
+	{0, -1, 0}
+	};
+
+	std::vector<std::vector<int>> laplaceFilter2 = {
+	{-1, -1, -1},
+	{-1, 8, -1},
+	{-1, -1, -1}
+	};
+
+	std::vector<std::vector<int>> highPassFilter1 = {
+	{0, -1, 0},
+	{-1, 5, -1},
+	{0, -1, 0}
+	};
+
+	std::vector<std::vector<int>> highPassFilter2 = {
+	{-1, -1, -1},
+	{-1, 9, -1},
+	{-1, -1, -1}
+	};
+
+	imshow("Original image", img);
+	imshow("Mean filter", performConvolutionOperation(img, meanFilter));
+	imshow("Gaussian filter", performConvolutionOperation(img, gaussianFilter));
+	imshow("Laplace filter 1", performConvolutionOperation(img, laplaceFilter1));
+	imshow("Laplace filter 2", performConvolutionOperation(img, laplaceFilter2));
+	imshow("High-pass 1", performConvolutionOperation(img, highPassFilter1));
+	imshow("High-pass 2", performConvolutionOperation(img, highPassFilter2));
+
+	waitKey(0);
+}
+
 int main() 
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -2667,6 +2773,10 @@ int main()
 		printf(" 43 - Implement the histogram transformation functions(section 8.6) for histogram gamma correction\n");
 		printf(" 44 - Implement the histogram transformation functions(section 8.6) for histogram histogram slide\n");
 		printf(" 45 - Implement the histogram equalization algorithm\n");
+
+		//Lab 9
+		printf(" 46 - Test the filter with the kernels from equations\n");
+
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -2824,6 +2934,12 @@ int main()
 		case 45:
 			displayHistogramEqualizationAlgorithm();
 			break;
+
+			//Lab 9
+		case 46:
+			testFilters();
+			break;
+
 		}
 	} 
 	while (op!=0);
