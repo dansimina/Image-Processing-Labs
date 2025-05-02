@@ -13,11 +13,11 @@ wchar_t* projectPath;
 void testOpenImage()
 {
 	char fname[MAX_PATH];
-	while(openFileDlg(fname))
+	while (openFileDlg(fname))
 	{
 		Mat src;
 		src = imread(fname);
-		imshow("image",src);
+		imshow("image", src);
 		waitKey();
 	}
 }
@@ -25,16 +25,16 @@ void testOpenImage()
 void testOpenImagesFld()
 {
 	char folderName[MAX_PATH];
-	if (openFolderDlg(folderName)==0)
+	if (openFolderDlg(folderName) == 0)
 		return;
 	char fname[MAX_PATH];
-	FileGetter fg(folderName,"bmp");
-	while(fg.getNextAbsFile(fname))
+	FileGetter fg(folderName, "bmp");
+	while (fg.getNextAbsFile(fname))
 	{
 		Mat src;
 		src = imread(fname);
-		imshow(fg.getFoundFileName(),src);
-		if (waitKey()==27) //ESC pressed
+		imshow(fg.getFoundFileName(), src);
+		if (waitKey() == 27) //ESC pressed
 			break;
 	}
 }
@@ -78,23 +78,23 @@ void testImageOpenAndSave()
 void testNegativeImage()
 {
 	char fname[MAX_PATH];
-	while(openFileDlg(fname))
+	while (openFileDlg(fname))
 	{
 		double t = (double)getTickCount(); // Get the current time [s]
-		
-		Mat src = imread(fname,IMREAD_GRAYSCALE);
+
+		Mat src = imread(fname, IMREAD_GRAYSCALE);
 		int height = src.rows;
 		int width = src.cols;
-		Mat dst = Mat(height,width,CV_8UC1);
+		Mat dst = Mat(height, width, CV_8UC1);
 		// Accessing individual pixels in an 8 bits/pixel image
 		// Inefficient way -> slow
-		for (int i=0; i<height; i++)
+		for (int i = 0; i < height; i++)
 		{
-			for (int j=0; j<width; j++)
+			for (int j = 0; j < width; j++)
 			{
-				uchar val = src.at<uchar>(i,j);
+				uchar val = src.at<uchar>(i, j);
 				uchar neg = 255 - val;
-				dst.at<uchar>(i,j) = neg;
+				dst.at<uchar>(i, j) = neg;
 			}
 		}
 
@@ -103,8 +103,8 @@ void testNegativeImage()
 		// Print (in the console window) the processing time in [ms] 
 		printf("Time = %.3f [ms]\n", t * 1000);
 
-		imshow("input image",src);
-		imshow("negative image",dst);
+		imshow("input image", src);
+		imshow("negative image", dst);
 		waitKey();
 	}
 }
@@ -122,13 +122,13 @@ void testNegativeImageFast()
 		double t = (double)getTickCount(); // Get the current time [s]
 
 		// The fastest approach of accessing the pixels -> using pointers
-		uchar *lpSrc = src.data;
-		uchar *lpDst = dst.data;
-		int w = (int) src.step; // no dword alignment is done !!!
-		for (int i = 0; i<height; i++)
+		uchar* lpSrc = src.data;
+		uchar* lpDst = dst.data;
+		int w = (int)src.step; // no dword alignment is done !!!
+		for (int i = 0; i < height; i++)
 			for (int j = 0; j < width; j++) {
-				uchar val = lpSrc[i*w + j];
-				lpDst[i*w + j] = 255 - val;
+				uchar val = lpSrc[i * w + j];
+				lpDst[i * w + j] = 255 - val;
 			}
 
 		// Get the current time again and compute the time difference [s]
@@ -136,8 +136,8 @@ void testNegativeImageFast()
 		// Print (in the console window) the processing time in [ms] 
 		printf("Time = %.3f [ms]\n", t * 1000);
 
-		imshow("input image",src);
-		imshow("negative image",dst);
+		imshow("input image", src);
+		imshow("negative image", dst);
 		waitKey();
 	}
 }
@@ -145,31 +145,31 @@ void testNegativeImageFast()
 void testColor2Gray()
 {
 	char fname[MAX_PATH];
-	while(openFileDlg(fname))
+	while (openFileDlg(fname))
 	{
 		Mat src = imread(fname);
 
 		int height = src.rows;
 		int width = src.cols;
 
-		Mat dst = Mat(height,width,CV_8UC1);
+		Mat dst = Mat(height, width, CV_8UC1);
 
 		// Accessing individual pixels in a RGB 24 bits/pixel image
 		// Inefficient way -> slow
-		for (int i=0; i<height; i++)
+		for (int i = 0; i < height; i++)
 		{
-			for (int j=0; j<width; j++)
+			for (int j = 0; j < width; j++)
 			{
-				Vec3b v3 = src.at<Vec3b>(i,j);
+				Vec3b v3 = src.at<Vec3b>(i, j);
 				uchar b = v3[0];
 				uchar g = v3[1];
 				uchar r = v3[2];
-				dst.at<uchar>(i,j) = (r+g+b)/3;
+				dst.at<uchar>(i, j) = (r + g + b) / 3;
 			}
 		}
-		
-		imshow("input image",src);
-		imshow("gray image",dst);
+
+		imshow("input image", src);
+		imshow("gray image", dst);
 		waitKey();
 	}
 }
@@ -199,12 +199,12 @@ void testBGR2HSV()
 		// Defining the pointer to the HSV image matrix (24 bits/pixel)
 		uchar* hsvDataPtr = hsvImg.data;
 
-		for (int i = 0; i<height; i++)
+		for (int i = 0; i < height; i++)
 		{
-			for (int j = 0; j<width; j++)
+			for (int j = 0; j < width; j++)
 			{
-				int hi = i*width * 3 + j * 3;
-				int gi = i*width + j;
+				int hi = i * width * 3 + j * 3;
+				int gi = i * width + j;
 
 				lpH[gi] = hsvDataPtr[hi] * 510 / 360;	// lpH = 0 .. 255
 				lpS[gi] = hsvDataPtr[hi + 1];			// lpS = 0 .. 255
@@ -224,18 +224,18 @@ void testBGR2HSV()
 void testResize()
 {
 	char fname[MAX_PATH];
-	while(openFileDlg(fname))
+	while (openFileDlg(fname))
 	{
 		Mat src;
 		src = imread(fname);
-		Mat dst1,dst2;
+		Mat dst1, dst2;
 		//without interpolation
-		resizeImg(src,dst1,320,false);
+		resizeImg(src, dst1, 320, false);
 		//with interpolation
-		resizeImg(src,dst2,320,true);
-		imshow("input image",src);
-		imshow("resized image (without interpolation)",dst1);
-		imshow("resized image (with interpolation)",dst2);
+		resizeImg(src, dst2, 320, true);
+		imshow("input image", src);
+		imshow("resized image (without interpolation)", dst1);
+		imshow("resized image (with interpolation)", dst2);
 		waitKey();
 	}
 }
@@ -243,17 +243,17 @@ void testResize()
 void testCanny()
 {
 	char fname[MAX_PATH];
-	while(openFileDlg(fname))
+	while (openFileDlg(fname))
 	{
-		Mat src,dst,gauss;
-		src = imread(fname,IMREAD_GRAYSCALE);
+		Mat src, dst, gauss;
+		src = imread(fname, IMREAD_GRAYSCALE);
 		double k = 0.4;
 		int pH = 50;
-		int pL = (int) k*pH;
+		int pL = (int)k * pH;
 		GaussianBlur(src, gauss, Size(5, 5), 0.8, 0.8);
-		Canny(gauss,dst,pL,pH,3);
-		imshow("input image",src);
-		imshow("canny",dst);
+		Canny(gauss, dst, pL, pH, 3);
+		imshow("input image", src);
+		imshow("canny", dst);
 		waitKey();
 	}
 }
@@ -269,7 +269,7 @@ void testVideoSequence()
 		waitKey(0);
 		return;
 	}
-		
+
 	Mat edges;
 	Mat frame;
 	char c;
@@ -278,14 +278,14 @@ void testVideoSequence()
 	{
 		Mat grayFrame;
 		cvtColor(frame, grayFrame, COLOR_BGR2GRAY);
-		Canny(grayFrame,edges,40,100,3);
+		Canny(grayFrame, edges, 40, 100, 3);
 		imshow("source", frame);
 		imshow("gray", grayFrame);
 		imshow("edges", edges);
 		c = waitKey(100);  // waits 100ms and advances to the next frame
 		if (c == 27) {
 			// press ESC to exit
-			printf("ESC pressed - capture finished\n"); 
+			printf("ESC pressed - capture finished\n");
 			break;  //ESC pressed
 		};
 	}
@@ -306,7 +306,7 @@ void testSnap()
 	Mat frame;
 	char numberStr[256];
 	char fileName[256];
-	
+
 	// video resolution
 	Size capS = Size((int)cap.get(CAP_PROP_FRAME_WIDTH),
 		(int)cap.get(CAP_PROP_FRAME_HEIGHT));
@@ -334,7 +334,7 @@ void testSnap()
 		}
 
 		++frameNum;
-		
+
 		imshow(WIN_SRC, frame);
 
 		c = waitKey(10);  // waits a key press to advance to the next frame
@@ -343,7 +343,7 @@ void testSnap()
 			printf("ESC pressed - capture finished");
 			break;  //ESC pressed
 		}
-		if (c == 115){ //'s' pressed - snap the image to a file
+		if (c == 115) { //'s' pressed - snap the image to a file
 			frameCount++;
 			fileName[0] = NULL;
 			sprintf(numberStr, "%d", frameCount);
@@ -351,7 +351,7 @@ void testSnap()
 			strcat(fileName, numberStr);
 			strcat(fileName, ".bmp");
 			bool bSuccess = imwrite(fileName, frame);
-			if (!bSuccess) 
+			if (!bSuccess)
 			{
 				printf("Error writing the snapped image\n");
 			}
@@ -367,13 +367,13 @@ void MyCallBackFunc(int event, int x, int y, int flags, void* param)
 	//More examples: http://opencvexamples.blogspot.com/2014/01/detect-mouse-clicks-and-moves-on-image.html
 	Mat* src = (Mat*)param;
 	if (event == EVENT_LBUTTONDOWN)
-		{
-			printf("Pos(x,y): %d,%d  Color(RGB): %d,%d,%d\n",
-				x, y,
-				(int)(*src).at<Vec3b>(y, x)[2],
-				(int)(*src).at<Vec3b>(y, x)[1],
-				(int)(*src).at<Vec3b>(y, x)[0]);
-		}
+	{
+		printf("Pos(x,y): %d,%d  Color(RGB): %d,%d,%d\n",
+			x, y,
+			(int)(*src).at<Vec3b>(y, x)[2],
+			(int)(*src).at<Vec3b>(y, x)[1],
+			(int)(*src).at<Vec3b>(y, x)[0]);
+	}
 }
 
 void testMouseClick()
@@ -413,9 +413,9 @@ void showHistogram(const std::string& name, int* hist, const int  hist_cols, con
 
 	//computes histogram maximum
 	int max_hist = 0;
-	for (int i = 0; i<hist_cols; i++)
-	if (hist[i] > max_hist)
-		max_hist = hist[i];
+	for (int i = 0; i < hist_cols; i++)
+		if (hist[i] > max_hist)
+			max_hist = hist[i];
 	double scale = 1.0;
 	scale = (double)hist_height / max_hist;
 	int baseline = hist_height - 1;
@@ -514,7 +514,7 @@ void computeMatrixInverse() {
 	for (int i = 0; i < 9; i++) {
 		scanf("%f", &vals[i]);
 	}
-	
+
 	Mat M(3, 3, CV_32FC1, vals);
 
 	M = M.inv();
@@ -536,7 +536,7 @@ void computeMatrixInverse() {
 //1.Create a function that will copy the R, G and B channels of a color, RGB24 image(CV_8UC3 type) into three matrices of type CV_8UC1(grayscale images).Display these matrices in three distinct windows.
 
 void imageTo3GrayscaleImages() {
-	Mat img = imread("Images/flowers_24bits.bmp",1);
+	Mat img = imread("Images/flowers_24bits.bmp", 1);
 
 	Mat imgR(img.rows, img.cols, CV_8UC3);
 	Mat imgG(img.rows, img.cols, CV_8UC3);
@@ -757,7 +757,7 @@ Mat multilevelThresholdingAlgorithm(Mat img) {
 	img.copyTo(newImg);
 
 	float* normalizedHistogram = probabilityDensityFunction(newImg, 256);
-	
+
 	int WH = 5;
 	int windowWidth = 2 * WH + 1;
 	float TH = 0.0003;
@@ -874,7 +874,7 @@ Mat multilevelThresholdingAlgorithmWithFloydSteinberg(Mat img) {
 			if (j + 1 < newImg.cols) {
 				newImg.at<unsigned char>(i, j + 1) = clamp(newImg.at<unsigned char>(i, j + 1) + (int)(7 * error / 16.0), 0, 255);
 			}
-			if (i + 1 < newImg.rows && j - 1 >= 0) {  
+			if (i + 1 < newImg.rows && j - 1 >= 0) {
 				newImg.at<unsigned char>(i + 1, j - 1) = clamp(newImg.at<unsigned char>(i + 1, j - 1) + (int)(3 * error / 16.0), 0, 255);
 			}
 			if (i + 1 < newImg.rows) {
@@ -996,7 +996,7 @@ void displayMultilevelThresholdingOnColorImage() {
 
 int computeArea(Mat img, int x, int y) {
 	int area = 0;
-	
+
 	Vec3b targetColor = img.at<Vec3b>(y, x);
 
 	for (int i = 0; i < img.rows; i++) {
@@ -1045,7 +1045,7 @@ double computeAxisOfElongation(Mat img, int x, int y) {
 			if (img.at<Vec3b>(i, j)[0] == targetColor[0] &&
 				img.at<Vec3b>(i, j)[1] == targetColor[1] &&
 				img.at<Vec3b>(i, j)[2] == targetColor[2]) {
-				
+
 				t1 += (i - centerOfMass.first) * (j - centerOfMass.second);
 				t2 += (j - centerOfMass.second) * (j - centerOfMass.second);
 				t3 += (i - centerOfMass.first) * (i - centerOfMass.first);
@@ -1065,13 +1065,13 @@ int computePerimeter(Mat img, int x, int y) {
 
 	for (int i = 0; i < img.rows; i++) {
 		for (int j = 0; j < img.cols; j++) {
-			if (img.at<Vec3b>(i, j) == targetColor && 
+			if (img.at<Vec3b>(i, j) == targetColor &&
 				((i < img.rows && img.at<Vec3b>(i + 1, j) != targetColor) ||
 					(i >= 0 && img.at<Vec3b>(i - 1, j) != targetColor) ||
 					(j < img.cols && img.at<Vec3b>(i, j + 1) != targetColor) ||
 					(j >= 0 && img.at<Vec3b>(i, j - 1) != targetColor)
 					)) {
-				
+
 				perimeter++;
 			}
 		}
@@ -1084,7 +1084,7 @@ double computeThinnessRatio(Mat img, int x, int y) {
 	int area = computeArea(img, x, y);
 	int perimeter = computePerimeter(img, x, y);
 
-	return 4.0 * PI * ((double) area / (perimeter * perimeter));
+	return 4.0 * PI * ((double)area / (perimeter * perimeter));
 }
 
 double computeAspectRatio(Mat img, int x, int y) {
@@ -1337,12 +1337,12 @@ void displayFilteredObjects() {
 //should be able to easily switch between the neighborhood types of 4 and 8.
 std::vector<std::vector<int>> bfsComponentLabeling(Mat img, int neighborhood) {
 	std::vector<std::vector<int>> labels(img.rows, std::vector<int>(img.cols, 0));
-	
+
 	if (neighborhood != 4 && neighborhood != 8)
 		return labels;
 
-	int di[] = {-1, 0, 1, 0, -1, 1, 1, -1};
-	int dj[] = {0, -1, 0, 1, -1, -1, 1, 1};
+	int di[] = { -1, 0, 1, 0, -1, 1, 1, -1 };
+	int dj[] = { 0, -1, 0, 1, -1, -1, 1, 1 };
 
 	int label = 0;
 
@@ -1380,8 +1380,8 @@ std::vector<std::vector<int>> bfsComponentLabeling(Mat img, int neighborhood) {
 std::vector<std::vector<int>> twoPassComponentLabeling(Mat img) {
 	std::vector<std::vector<int>> labels(img.rows, std::vector<int>(img.cols, 0));
 
-	int dirI[] = {0, -1, -1, -1};
-	int dirJ[] = {-1, -1, 0, 1};
+	int dirI[] = { 0, -1, -1, -1 };
+	int dirJ[] = { -1, -1, 0, 1 };
 
 	int label = 0;
 
@@ -1481,7 +1481,7 @@ void generateColorImage() {
 					Vec3b newColor = Vec3b(d(gen), d(gen), d(gen));
 					colors[labels[i][j]] = newColor;
 				}
-				
+
 				newImg.at<Vec3b>(i, j) = colors[labels[i][j]];
 			}
 			else {
@@ -1542,7 +1542,7 @@ std::pair<std::vector<std::vector<int>>, std::vector<std::vector<int>>> twoPassL
 							edges[x].push_back(labels[y.first][y.second]);
 						}
 					}
- 				}
+				}
 			}
 		}
 	}
@@ -2164,7 +2164,7 @@ Mat regionFillingAlgorithm(Mat img) {
 			}
 		}
 	}
-	if (!found) return img; 
+	if (!found) return img;
 
 	Mat Xp = Mat(img.rows, img.cols, CV_8UC1, 255);
 	Mat X = Mat(img.rows, img.cols, CV_8UC1, 255);
@@ -2269,7 +2269,7 @@ void displayMeanAndStandardDeviation() {
 
 		int* cumulativeHistogram = cumulativeHist(src);
 		showHistogram("cumulative histogram", cumulativeHistogram, 256, 200);
-		
+
 		free(histogram);
 		free(cumulativeHistogram);
 
@@ -2551,8 +2551,8 @@ Mat histogramEqualizationAlgorithm(Mat img) {
 		mapping[i] = round(c[i] * L);
 	}
 
-	delete[] h;  
-	
+	delete[] h;
+
 	for (int i = 0; i < img.rows; i++) {
 		for (int j = 0; j < img.cols; j++) {
 			result.at<uchar>(i, j) = mapping[result.at<uchar>(i, j)];
@@ -2571,7 +2571,7 @@ void displayHistogramEqualizationAlgorithm() {
 	while (openFileDlg(fname)) {
 		src = imread(fname, IMREAD_GRAYSCALE);
 
-		
+
 
 		Mat res = histogramEqualizationAlgorithm(src);
 
@@ -2631,11 +2631,11 @@ Mat performConvolutionOperation(cv::Mat img, std::vector<std::vector<int>> kerne
 				for (int n = 0; n < kCols; n++) {
 					int y = i + m - kCenterI;
 					int x = j + n - kCenterJ;
-					
+
 					val += kernel[m][n] * img.at<uchar>(y, x);
 				}
 			}
-			
+
 			if (lowPass) {
 				result.at<uchar>(i, j) = S * val;
 			}
@@ -2700,10 +2700,314 @@ void testFilters() {
 	waitKey(0);
 }
 
-int main() 
+//Study the provided generic function for processing in the frequency domain.Perform
+//the conversion of a source image from spatial domain to frequency domain by using the
+//Fourier transform(DFT), then apply the inverse Fourier transform(IDFT) on the
+//obtained Fourier spectrum coefficients and check if the destination is the same as the
+//source image.
+void centering_transform(Mat img) {
+	//expects floating point image 
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			img.at<float>(i, j) = ((i + j) & 1) ? -img.at<float>(i, j) : img.at<float>(i, j);
+		}
+	}
+}
+
+Mat generic_frequency_domain_filter(Mat src) {
+	//convert input image to float image 
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+	//centering transformation  
+	centering_transform(srcf);
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+	//split into real and imaginary channels 
+	Mat channels[] = { Mat::zeros(src.size(), CV_32F), Mat::zeros(src.size(), CV_32F) };
+	split(fourier, channels);  // channels[0] = Re(DFT(I)), channels[1] = Im(DFT(I)) 
+	//calculate magnitude and phase in floating point images mag and phi 
+	Mat mag, phi;
+	magnitude(channels[0], channels[1], mag);
+	phase(channels[0], channels[1], phi);
+	//display the phase and magnitude images here 
+	// ...... 
+	//insert filtering operations on Fourier coefficients here 
+	// ...... 
+	//store in real part in channels[0] and imaginary part in channels[1] 
+	// ...... 
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf;
+	merge(channels, 2, fourier);
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+	//inverse centering transformation  
+	centering_transform(dstf);
+	//normalize the result and put in the destination image 
+	normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+	//Note: normalizing distorts the resut while enhancing the image display in the range [0,255].  
+	//For exact results (see Practical work 3) the normalization should be replaced with convertion: 
+	//dstf.convertTo(dst, CV_8UC1); 
+	return dst;
+}
+
+void test_generic_frequency_domain_filter() {
+	//convert input image to float image 
+	Mat src = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+	imshow("Src", src);
+
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+	//centering transformation  
+	centering_transform(srcf);
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+	//split into real and imaginary channels 
+	Mat channels[] = { Mat::zeros(src.size(), CV_32F), Mat::zeros(src.size(), CV_32F) };
+	split(fourier, channels);  // channels[0] = Re(DFT(I)), channels[1] = Im(DFT(I)) 
+	//calculate magnitude and phase in floating point images mag and phi 
+	Mat mag, phi;
+	magnitude(channels[0], channels[1], mag);
+	phase(channels[0], channels[1], phi);
+	//display the phase and magnitude images here 
+	
+	imshow("Magnitude", mag);
+	imshow("Phase", phi);
+
+
+	//insert filtering operations on Fourier coefficients here 
+	// ...... 
+	//store in real part in channels[0] and imaginary part in channels[1] 
+	// ...... 
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf;
+	merge(channels, 2, fourier);
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+	//inverse centering transformation  
+	centering_transform(dstf);
+	//normalize the result and put in the destination image 
+	//normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+	//Note: normalizing distorts the resut while enhancing the image display in the range [0,255].  
+	//For exact results (see Practical work 3) the normalization should be replaced with convertion: 
+	dstf.convertTo(dst, CV_8UC1); 
+	imshow("Dst", dst);
+
+	waitKey(0);
+}
+
+//Add a processing function that computes and displays the logarithm of the magnitude 
+//of the Fourier transform of an input image. Add 1 to the magnitude to avoid log(0). 
+void compute_and_displays_the_logarithm_of_the_magnitude() {
+	Mat src = imread("Images/circle.bmp", IMREAD_GRAYSCALE);
+	imshow("Src", src);
+
+	//convert input image to float image 
+	Mat srcf, srcf_centered;
+	src.convertTo(srcf, CV_32FC1);
+	src.convertTo(srcf_centered, CV_32FC1);
+
+	//centering transformation  
+	centering_transform(srcf_centered);
+
+	//perform forward transform with complex image output 
+	Mat fourier_centered, fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+	dft(srcf_centered, fourier_centered, DFT_COMPLEX_OUTPUT);
+
+	//split into real and imaginary channels 
+	Mat channels[] = { Mat::zeros(src.size(), CV_32F), Mat::zeros(src.size(), CV_32F) };
+	Mat channels_centered[] = { Mat::zeros(src.size(), CV_32F), Mat::zeros(src.size(), CV_32F) };
+
+
+	split(fourier, channels);
+	split(fourier_centered, channels_centered);  // channels[0] = Re(DFT(I)), channels[1] = Im(DFT(I)) 
+	//calculate magnitude and phase in floating point images mag and phi 
+	Mat mag, phi, mag_centered, phi_centered;
+	magnitude(channels[0], channels[1], mag);
+	phase(channels[0], channels[1], phi);
+	magnitude(channels_centered[0], channels_centered[1], mag_centered);
+	phase(channels_centered[0], channels_centered[1], phi_centered);
+	
+	for (int i = 0; i < mag.rows; i++) {
+		for (int j = 0; j < mag.cols; j++) {
+			mag.at<float>(i, j) = log(mag.at<float>(i, j) + 1);
+			mag_centered.at<float>(i, j) = log(mag_centered.at<float>(i, j) + 1);
+		}
+	}
+
+	normalize(mag, mag, 0, 255, NORM_MINMAX);
+	mag.convertTo(mag, CV_8UC1);
+
+	imshow("Log", mag);
+
+	normalize(mag_centered, mag_centered, 0, 255, NORM_MINMAX);
+	mag_centered.convertTo(mag_centered, CV_8UC1);
+
+	imshow("Log centered", mag_centered);
+
+	waitKey(0);
+}
+
+//Add processing functions that perform low - and high - pass filtering in the frequency
+//domain using the ideal and Gaussian filters from equations(9.16)...(9.19).
+Mat ideal_low_pass_filter(Mat src, int R) {
+	//convert input image to float image 
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+	//centering transformation  
+	centering_transform(srcf);
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+	
+	int hH = src.rows / 2;
+	int hW = src.cols / 2;
+
+	int sqaredR = R * R;
+
+	for (int u = 0; u < src.rows; u++) {
+		for(int v = 0; v < src.cols; v++) {
+			if ((hH - u) * (hH - u) + (hW - v) * (hW - v) > sqaredR) {
+				fourier.at<cv::Vec2f>(u, v) = 0;
+			}
+		}
+	}
+
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf;
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+	//inverse centering transformation  
+	centering_transform(dstf);
+	//normalize the result and put in the destination image 
+	normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+	//Note: normalizing distorts the resut while enhancing the image display in the range [0,255].  
+	//For exact results (see Practical work 3) the normalization should be replaced with convertion: 
+	//dstf.convertTo(dst, CV_8UC1); 
+	return dst;
+}
+
+Mat ideal_high_pass_filter(Mat src, int R) {
+	//convert input image to float image 
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+	//centering transformation  
+	centering_transform(srcf);
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+
+	int hH = src.rows / 2;
+	int hW = src.cols / 2;
+
+	int sqaredR = R * R;
+
+	for (int u = 0; u < src.rows; u++) {
+		for (int v = 0; v < src.cols; v++) {
+			if ((hH - u) * (hH - u) + (hW - v) * (hW - v) <= sqaredR) {
+				fourier.at<cv::Vec2f>(u, v) = 0;
+			}
+		}
+	}
+
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf;
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+	//inverse centering transformation  
+	centering_transform(dstf);
+	//normalize the result and put in the destination image 
+	normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+	//Note: normalizing distorts the resut while enhancing the image display in the range [0,255].  
+	//For exact results (see Practical work 3) the normalization should be replaced with convertion: 
+	//dstf.convertTo(dst, CV_8UC1); 
+	return dst;
+}
+
+Mat gaussian_low_pass_filter(Mat src, int A) {
+	//convert input image to float image 
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+	//centering transformation  
+	centering_transform(srcf);
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+
+	int hH = src.rows / 2;
+	int hW = src.cols / 2;
+
+	int sqaredA = A * A;
+
+	for (int u = 0; u < src.rows; u++) {
+		for (int v = 0; v < src.cols; v++) {
+			fourier.at<cv::Vec2f>(u, v) *= exp(-((hH - u) * (hH - u) + (hW - v) * (hW - v)) / (float)sqaredA);
+		}
+	}
+
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf;
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+	//inverse centering transformation  
+	centering_transform(dstf);
+	//normalize the result and put in the destination image 
+	normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+	//Note: normalizing distorts the resut while enhancing the image display in the range [0,255].  
+	//For exact results (see Practical work 3) the normalization should be replaced with convertion: 
+	//dstf.convertTo(dst, CV_8UC1); 
+	return dst;
+}
+
+Mat gaussian_high_pass_filter(Mat src, int A) {
+	//convert input image to float image 
+	Mat srcf;
+	src.convertTo(srcf, CV_32FC1);
+	//centering transformation  
+	centering_transform(srcf);
+	//perform forward transform with complex image output 
+	Mat fourier;
+	dft(srcf, fourier, DFT_COMPLEX_OUTPUT);
+
+	int hH = src.rows / 2;
+	int hW = src.cols / 2;
+
+	int sqaredA = A * A;
+
+	for (int u = 0; u < src.rows; u++) {
+		for (int v = 0; v < src.cols; v++) {
+			fourier.at<cv::Vec2f>(u, v) *= (1 - exp(-((hH - u) * (hH - u) + (hW - v) * (hW - v)) / (float)sqaredA));
+		}
+	}
+
+	//perform inverse transform and put results in dstf 
+	Mat dst, dstf;
+	dft(fourier, dstf, DFT_INVERSE | DFT_REAL_OUTPUT | DFT_SCALE);
+	//inverse centering transformation  
+	centering_transform(dstf);
+	//normalize the result and put in the destination image 
+	normalize(dstf, dst, 0, 255, NORM_MINMAX, CV_8UC1);
+	//Note: normalizing distorts the resut while enhancing the image display in the range [0,255].  
+	//For exact results (see Practical work 3) the normalization should be replaced with convertion: 
+	//dstf.convertTo(dst, CV_8UC1); 
+	return dst;
+}
+
+
+void display_filtering_in_the_frequency_domain() {
+	Mat src = imread("Images/cameraman.bmp", IMREAD_GRAYSCALE);
+	int R = 20;
+
+	imshow("source", src);
+	imshow("ideal low-pass", ideal_low_pass_filter(src, 20));
+	imshow("ideal high-pass", ideal_high_pass_filter(src, 20));
+	imshow("gaussian low-pass", gaussian_low_pass_filter(src, 20));
+	imshow("gaussian high-pass", gaussian_high_pass_filter(src, 20));
+
+	waitKey(0);
+}
+
+int main()
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
-    projectPath = _wgetcwd(0, 0);
+	projectPath = _wgetcwd(0, 0);
 
 	int op;
 	do
@@ -2776,11 +3080,14 @@ int main()
 
 		//Lab 9
 		printf(" 46 - Test the filter with the kernels from equations\n");
+		printf(" 47 - Study the provided generic function for processing in the frequency domain\n");
+		printf(" 48 Add a processing function that computes and displays the logarithm of the magnitude of the Fourier transform of an input image.\n");
+		printf(" 49 - Add processing functions that perform low - and high - pass filtering in the frequency domain\n");
 
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
-		scanf("%d",&op);
+		scanf("%d", &op);
 		switch (op)
 		{
 		case 1:
@@ -2939,9 +3246,17 @@ int main()
 		case 46:
 			testFilters();
 			break;
+		case 47:
+			test_generic_frequency_domain_filter();
+			break;
+		case 48:
+			compute_and_displays_the_logarithm_of_the_magnitude();
+			break;
+		case 49:
+			display_filtering_in_the_frequency_domain();
+			break;
 
 		}
-	} 
-	while (op!=0);
+	} while (op != 0);
 	return 0;
 }
