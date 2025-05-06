@@ -2601,8 +2601,8 @@ void displayHistogramEqualizationAlgorithm() {
 //reciprocal of the sum of filter coefficients for low pass filters or according to equation
 //(9.20) for high - pass filters.
 
-Mat performConvolutionOperation(cv::Mat img, std::vector<std::vector<int>> kernel) {
-	cv::Mat result = img.clone();
+Mat performConvolutionOperation(Mat img, std::vector<std::vector<int>> kernel) {
+	Mat result = img.clone();
 	int kRows = kernel.size();
 	int kCols = kernel[0].size();
 	int kCenterI = kRows / 2;
@@ -3004,6 +3004,217 @@ void display_filtering_in_the_frequency_domain() {
 	waitKey(0);
 }
 
+// Lab 10
+//Implement a median filter with a variable dimension(w = 3, 5 or 7) specified by the user.
+Mat applyMedianFilter(Mat img, int w) {
+	const int R = w / 2;
+
+	Mat result = img.clone();
+
+	for (int i = R; i < img.rows - R; i++) {
+		for (int j = R; j < img.cols - R; j++) {
+			std::vector<int> values;
+			for (int di = -R; di <= R; di++) {
+				for (int dj = -R; dj <= R; dj++) {
+					int ni = i + di;
+					int nj = j + dj;
+
+					values.push_back(img.at<uchar>(ni, nj));
+				}
+			}
+
+			sort(values.begin(), values.end());
+			int m = values.size() / 2;
+
+			result.at<uchar>(i, j) = values[m];
+		}
+	}
+
+	return result;
+}
+
+void displayMedianFilter() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int w;
+		std::cout << "W: ";
+		std::cin >> w;
+
+		double t = (double)getTickCount(); 
+
+		Mat res = applyMedianFilter(src, w);
+
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		imshow("Original Image", src);
+		imshow("Result Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+//Implement the filtering operation with a 2D Gaussian filter, with variable size w(w = 3, 5 or 7), specified by the user.
+std::vector<std::vector<double>> computeGaussianFilter1(int w) {
+	std::vector<std::vector<double>> result(w, std::vector<double>(w, 0.0));
+	int ci = w / 2;
+	int cj = w / 2;
+	double sigma = w / 6.0;
+
+	for (int i = 0; i < w; i++) {
+		for (int j = 0; j < w; j++) {
+			result[i][j] = (1.0 / (2 * PI * sigma * sigma)) * exp(-((i - ci) * (i - ci) + (j - cj) * (j - cj)) / (2 * sigma * sigma));
+		}
+	}
+
+	return result;
+}
+
+Mat applyGaussianFilter1(Mat img, int w) {
+	const int R = w / 2;
+
+	Mat result = img.clone();
+
+	std::vector<std::vector<double>> G = computeGaussianFilter1(w);
+
+	for (int i = R; i < img.rows - R; i++) {
+		for (int j = R; j < img.cols - R; j++) {
+			double value = 0.0;
+			for (int di = -R; di <= R; di++) {
+				for (int dj = -R; dj <= R; dj++) {
+					int ni = i + di;
+					int nj = j + dj;
+					int gi = di + R;
+					int gj = dj + R;
+
+					value += img.at<uchar>(ni, nj) * G[gi][gj];
+				}
+			}
+
+			result.at<uchar>(i, j) = value;
+		}
+	}
+
+	return result;
+}
+
+void displayGaussianFilter1() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int w;
+		std::cout << "W: ";
+		std::cin >> w;
+
+		double t = (double)getTickCount();
+
+		Mat res = applyGaussianFilter1(src, w);
+
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		imshow("Original Image", src);
+		imshow("Result Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
+//Implement Gaussian filtering by using a Gaussian kernel separated into 2 vector components
+//Gx and Gy having a variable size w(w = 3, 5 or 7), specified by the user.
+
+std::vector<double> computeGaussianFilter2(int w) {
+	std::vector<double> res(w, 0.0);
+
+	int c = w / 2;
+	double sigma = w / 6.0;
+
+	for (int i = 0; i < w; i++) {
+		res[i] = (1.0 / (sqrt(2.0 * PI) * sigma)) * exp(-((i - c) * (i - c)) / (2.0 * sigma * sigma));
+	}
+
+	return res;
+}
+
+Mat applyGaussianFilter2(Mat img, int w) {
+	const int R = w / 2;
+
+	Mat aux = img.clone();
+	Mat result = img.clone();
+
+	std::vector<double> G = computeGaussianFilter2(w);
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = R; j < img.cols - R; j++) {
+			double value = 0.0;
+			
+			for (int d = -R; d <= R; d++) {
+				int nj = j + d;
+				int g = d + R;
+
+				value += img.at<uchar>(i, nj) * G[g];
+			}
+
+			aux.at<uchar>(i, j) = value;
+		}
+	}
+
+	for (int j = 0; j < img.cols; j++) {
+		for (int i = R; i < img.rows - R; i++) {
+			double value = 0.0;
+
+			for (int d = -R; d <= R; d++) {
+				int ni = i + d;
+				int g = d + R;
+
+				value += aux.at<uchar>(ni, j) * G[g];
+			}
+
+			result.at<uchar>(i, j) = value;
+		}
+	}
+
+	return result;
+}
+
+void displayGaussianFilter2() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		int w;
+		std::cout << "W: ";
+		std::cin >> w;
+
+		double t = (double)getTickCount();
+
+		Mat res = applyGaussianFilter2(src, w);
+
+		t = ((double)getTickCount() - t) / getTickFrequency();
+		printf("Time = %.3f [ms]\n", t * 1000);
+
+		imshow("Original Image", src);
+		imshow("Result Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
 int main()
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -3084,6 +3295,10 @@ int main()
 		printf(" 48 Add a processing function that computes and displays the logarithm of the magnitude of the Fourier transform of an input image.\n");
 		printf(" 49 - Add processing functions that perform low - and high - pass filtering in the frequency domain\n");
 
+		//Lab 10
+		printf(" 50 - Implement a median filter with a variable dimension (w = 3, 5 or 7) specified by the user.\n");
+		printf(" 51 - Implement the filtering operation with a 2D Gaussian filter, with variable size w(w = 3, 5 or 7), specified by the user.\n");
+		printf(" 52 -  Implement Gaussian filtering by using a Gaussian kernel separated into 2 vector components Gx and Gy having a variable size w(w = 3, 5 or 7), specified by the user.\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -3254,6 +3469,19 @@ int main()
 			break;
 		case 49:
 			display_filtering_in_the_frequency_domain();
+			break;
+
+			//Lab 10
+		case 50:
+			displayMedianFilter();
+			break;
+
+		case 51:
+			displayGaussianFilter1();
+			break;
+
+		case 52:
+			displayGaussianFilter2();
 			break;
 
 		}
