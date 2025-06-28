@@ -2610,7 +2610,6 @@ Mat performConvolutionOperation(Mat img, std::vector<std::vector<int>> kernel) {
 
 	int Sp = 0, Sn = 0;
 	bool lowPass = true;
-
 	for (int i = 0; i < kRows; i++) {
 		for (int j = 0; j < kCols; j++) {
 			if (kernel[i][j] > 0)
@@ -2622,7 +2621,7 @@ Mat performConvolutionOperation(Mat img, std::vector<std::vector<int>> kernel) {
 		}
 	}
 
-	double S = lowPass ? 1.0 / Sp : 1.0 / (2.0 * max(Sp, Sn));
+	double S = (Sp == 0 && Sn == 0) ? 1.0 : (lowPass ? 1.0 / Sp : 1.0 / (2.0 * max(Sp, Sn)));
 
 	for (int i = kCenterI; i < img.rows - kCenterI; i++) {
 		for (int j = kCenterJ; j < img.cols - kCenterJ; j++) {
@@ -2631,16 +2630,15 @@ Mat performConvolutionOperation(Mat img, std::vector<std::vector<int>> kernel) {
 				for (int n = 0; n < kCols; n++) {
 					int y = i + m - kCenterI;
 					int x = j + n - kCenterJ;
-
 					val += kernel[m][n] * img.at<uchar>(y, x);
 				}
 			}
 
 			if (lowPass) {
-				result.at<uchar>(i, j) = S * val;
+				result.at<uchar>(i, j) = (S * val);
 			}
 			else {
-				result.at<uchar>(i, j) = S * val + 127;
+				result.at<uchar>(i, j) = (S * val + 127);
 			}
 		}
 	}
@@ -3215,6 +3213,236 @@ void displayGaussianFilter2() {
 	}
 }
 
+// Lab 11
+//The steps 1 – 3 of the Canny edge detection algorithm will be implemented(step 1 –
+//was already implemented in laboratory 10; step 2 – is the implementation with Sobel
+//filters; step 3 – implement the non - maxima suppression operation).The results
+//obtained after step 3 will be shown in a destination window.The results will be
+//compared with the one obtained at point 2 after the simple use of the Sobel operator
+
+
+int computeAdaptiveThresholding(Mat magnitude) {
+	std::vector<int> hist(256, 0);
+
+	for (int i = 0; i < magnitude.rows; i++) {
+		for (int j = 0; j < magnitude.cols; j++) {
+			hist[(int)magnitude.at<float>(i, j)]++;
+		}
+	}
+
+	double p = 0.1;
+	int noNonEdge = (double)(1 - p) * (magnitude.rows * magnitude.cols - hist[0]);
+
+	int sum = 0;
+
+	for (int i = 1; i < 256; i++) {
+		sum += hist[i];
+		if (sum >= noNonEdge) {
+			return i;
+		}
+	}
+
+	return 255;
+}
+
+Mat floatToUchar(Mat img) {
+	Mat result = Mat::zeros(img.size(), CV_8UC1);
+
+	for (int i = 0; i < result.rows; i++) {
+		for (int j = 0; j < result.cols; j++) {
+			result.at<uchar>(i, j) = round(img.at<float>(i, j));
+		}
+	}
+
+	return result;
+}
+
+Mat applyCanny(Mat img) {
+	Mat imgf = applyGaussianFilter2(img, 5);
+	imshow("Noise filtering through a Gaussian kernel ", imgf);
+
+	std::vector<std::vector<int>> sobelFx = {
+	{-1, 0, 1},
+	{-2, 0, 2},
+	{-1, 0, 1}
+	};
+	
+	std::vector<std::vector<int>> sobelFy = {
+	{1, 2, 1},
+	{0, 0, 0},
+	{-1, -2, -1}
+	};
+
+	Mat fx = Mat::zeros(imgf.size(), CV_32F);
+	Mat fy = Mat::zeros(imgf.size(), CV_32F);
+
+	for (int i = 1; i < imgf.rows - 1; i++) {
+		for (int j = 1; j < imgf.cols - 1; j++) {
+			for (int di = -1; di <= 1; di++) {
+				for (int dj = -1; dj <= 1; dj++) {
+					fx.at<float>(i, j) += imgf.at<uchar>(i + di, j + dj) * sobelFx[di + 1][dj + 1];
+					fy.at<float>(i, j) += imgf.at<uchar>(i + di, j + dj) * sobelFy[di + 1][dj + 1];
+				}
+			}
+		}
+	}
+
+	Mat magnitude = Mat::zeros(img.size(), CV_32F);
+	Mat direction = Mat::zeros(img.size(), CV_32F);
+
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			float gx = fx.at<float>(i, j);
+			float gy = fy.at<float>(i, j);
+			magnitude.at<float>(i, j) = sqrt(gx * gx + gy * gy) / (4 * sqrt(2));
+			direction.at<float>(i, j) = atan2(gy, gx);
+		}
+	}
+
+	Mat suppressed = magnitude.clone();
+	for (int i = 1; i < img.rows - 1; i++) {
+		for (int j = 1; j < img.cols - 1; j++) {
+			float angle = direction.at<float>(i, j);
+
+			float q = FLT_MAX, r = FLT_MAX;
+
+
+			if ((angle >= -PI / 8 && angle < PI / 8) || (angle <= -7 * PI / 8) || (angle > 7 * PI / 8)) {
+				q = magnitude.at<float>(i, j + 1);
+				r = magnitude.at<float>(i, j - 1);
+			}
+			else if ((angle >= PI / 8 && angle < 3 * PI / 8) || (angle >= -7 * PI / 8 && angle < -5 * PI / 8)) {
+				q = magnitude.at<float>(i - 1, j + 1);
+				r = magnitude.at<float>(i + 1, j - 1);
+			}
+			else if ((angle >= 3 * PI / 8 && angle < 5 * PI / 8) || (angle >= -5 * PI / 8 && angle < -3 * PI / 8)) {
+				q = magnitude.at<float>(i - 1, j);
+				r = magnitude.at<float>(i + 1, j);
+			}
+			else if ((angle >= 5 * PI / 8 && angle < 7 * PI / 8) || (angle >= -3 * PI / 8 && angle < -PI / 8)) {
+				q = magnitude.at<float>(i - 1, j - 1);
+				r = magnitude.at<float>(i + 1, j + 1);
+			}
+
+			if (magnitude.at<float>(i, j) < q || magnitude.at<float>(i, j) < r) {
+				suppressed.at<float>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("Non-maximum suppression ", floatToUchar(suppressed));
+
+	imshow("Computing the gradient's module and direction  ", floatToUchar(magnitude));
+
+	int threshold = computeAdaptiveThresholding(suppressed);
+
+	/*Mat adaptiveThresholding = Mat::zeros(img.size(), CV_8UC1);
+	for (int i = 0; i < adaptiveThresholding.rows; i++) {
+		for (int j = 0; j < adaptiveThresholding.cols; j++) {
+			if (suppressed.at<float>(i, j) > threshold) {
+				adaptiveThresholding.at<uchar>(i, j) = 255;
+			}
+			else {
+				adaptiveThresholding.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("After adaptive thresholding", adaptiveThresholding);*/
+
+	Mat edgeExtension = Mat::zeros(img.size(), CV_8UC1);
+
+	float k = 0.4;
+	int threshold_low = k * (float)threshold;
+
+	for (int i = 0; i < edgeExtension.rows; i++) {
+		for (int j = 0; j < edgeExtension.cols; j++) {
+			if (suppressed.at<float>(i, j) > threshold) {
+				edgeExtension.at<uchar>(i, j) = 255;
+			}
+			else if (suppressed.at<float>(i, j) > threshold_low) {
+				edgeExtension.at<uchar>(i, j) = 128;
+			}
+			else {
+				edgeExtension.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("Final edges after edge extension intermediar", edgeExtension);
+
+	std::queue<std::pair<int, int>> Q;
+
+	for (int i = 0; i < edgeExtension.rows; i++) {
+		for (int j = 0; j < edgeExtension.cols; j++) {
+			if (edgeExtension.at<uchar>(i, j) == 255) {
+				for (int di = -1; di <= 1; di++) {
+					for (int dj = -1; dj <= 1; dj++) {
+						int ni = i + di, nj = j + dj;
+						if (!(di == 0 && dj == 0) &&
+							ni >= 0 && ni < edgeExtension.rows &&
+							nj >= 0 && nj < edgeExtension.cols &&
+							edgeExtension.at<uchar>(ni, nj) == 128) {
+							Q.push({ ni, nj });
+							edgeExtension.at<uchar>(ni, nj) = 254;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	while (!Q.empty()) {
+		std::pair<int, int> pos = Q.front();
+		Q.pop();
+		edgeExtension.at<uchar>(pos.first, pos.second) = 255;
+		for (int di = -1; di <= 1; di++) {
+			for (int dj = -1; dj <= 1; dj++) {
+				int ni = pos.first + di, nj = pos.second + dj;
+				if (!(di == 0 && dj == 0) &&
+					ni >= 0 && ni < edgeExtension.rows &&
+					nj >= 0 && nj < edgeExtension.cols &&
+					edgeExtension.at<uchar>(ni, nj) == 128) {
+					Q.push({ ni, nj });
+					edgeExtension.at<uchar>(ni, nj) = 254;
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < edgeExtension.rows; i++) {
+		for (int j = 0; j < edgeExtension.cols; j++) {
+			if (edgeExtension.at<uchar>(i, j) < 255) {
+				edgeExtension.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	imshow("Final edges after edge extension", edgeExtension);
+
+	return edgeExtension;
+}
+
+
+void displayCanny() {
+	Mat src;
+	char fname[MAX_PATH];
+
+	while (openFileDlg(fname)) {
+		src = imread(fname, IMREAD_GRAYSCALE);
+
+		Mat res = applyCanny(src);
+
+
+		imshow("Original Image", src);
+		imshow("Result Image", res);
+
+		waitKey(0);
+
+		destroyAllWindows();
+	}
+}
+
 int main()
 {
 	cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_FATAL);
@@ -3299,6 +3527,9 @@ int main()
 		printf(" 50 - Implement a median filter with a variable dimension (w = 3, 5 or 7) specified by the user.\n");
 		printf(" 51 - Implement the filtering operation with a 2D Gaussian filter, with variable size w(w = 3, 5 or 7), specified by the user.\n");
 		printf(" 52 -  Implement Gaussian filtering by using a Gaussian kernel separated into 2 vector components Gx and Gy having a variable size w(w = 3, 5 or 7), specified by the user.\n");
+
+		//Lab11
+		printf(" 53 - The Canny edge detection method\n");
 
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
@@ -3482,6 +3713,11 @@ int main()
 
 		case 52:
 			displayGaussianFilter2();
+			break;
+			
+			//Lab 11
+		case 53:
+			displayCanny();
 			break;
 
 		}
